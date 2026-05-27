@@ -1,26 +1,74 @@
 import { useEffect, useState } from 'react'
+import { postRecommendation } from '../api/suplematch'
 
 const MOCK_RESULT = {
+  recommendation_id: 'rec_mock',
+  packs_ranked: [],
+  conditions: ['DEFICIT_VIT_D', 'BAJA_INMUNIDAD'],
+  recomendaciones: [
+    { icon: '☀️', nombre: 'Vitamina D3', dosis: '1000 UI / día', razon: 'Por déficit detectado',  precio: 16 },
+    { icon: '⚡', nombre: 'Zinc',        dosis: '15 mg / día',   razon: 'Refuerza inmunidad',      precio: 12 },
+    { icon: '🍊', nombre: 'Vitamina C',  dosis: '500 mg / día',  razon: 'Potencia el zinc',        precio: 8  },
+  ],
   condiciones: [
     { nombre: 'Déficit de Vitamina D', nivel: 'Alta prob.',  probabilidad: 0.82, emoji: '😌' },
     { nombre: 'Baja Inmunidad',        nivel: 'Media prob.', probabilidad: 0.55, emoji: '🛡️' },
     { nombre: 'Base saludable',        nivel: 'Confirmado',  probabilidad: 0.28, emoji: '✅' },
   ],
-  recomendaciones: [
-    { nombre: 'Vitamina D3', dosis: '1000 UI / día', razon: 'Por déficit detectado',  precio: 16, icon: '☀️' },
-    { nombre: 'Zinc',        dosis: '15 mg / día',   razon: 'Refuerza inmunidad',      precio: 12, icon: '⚡' },
-    { nombre: 'Vitamina C',  dosis: '500 mg / día',  razon: 'Potencia el zinc',        precio: 8,  icon: '🍊' },
-  ],
 }
 
 async function callBackend(userData) {
-  const res = await fetch('/api/analizar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData),
-  })
-  if (!res.ok) throw new Error('Backend error')
-  return res.json()
+  const result = await postRecommendation(userData)
+  return normalizeResult(result)
+}
+
+function normalizeResult(result) {
+  const conditions = result.conditions ?? []
+  const conditionsDisplay = result.conditions_display ?? []
+  const recommendations = result.recommendations ?? []
+
+  return {
+    ...result,
+    condiciones: (conditionsDisplay.length ? conditionsDisplay : conditions.map(condition => ({ code: condition }))).map((condition, index) => ({
+      nombre: condition.display_name ?? formatCondition(condition.code),
+      nivel: condition.level ?? (index === 0 ? 'Detectado' : 'Relacionado'),
+      probabilidad: condition.probability ?? (index === 0 ? 0.82 : 0.55),
+      emoji: iconToEmoji(condition.icon_key, index),
+    })),
+    recomendaciones: recommendations.map((item, index) => ({
+      component_id: item.component_id,
+      nombre: item.display_name ?? item.name,
+      razon: item.reason ?? item.condition_display ?? 'Recomendado para tu perfil',
+      dosis: item.dosage_hint ?? item.type_display ?? 'Complementario',
+      precio: [16, 12, 8, 18, 22][index % 5],
+      icon: iconToEmoji(item.icon_key, index),
+    })),
+  }
+}
+
+function iconToEmoji(iconKey, fallbackIndex = 0) {
+  const icons = {
+    activity: '😌',
+    check: '✅',
+    sun: '☀️',
+    bone: '🦴',
+    zap: '⚡',
+    citrus: '🍊',
+    moon: '🌙',
+    waves: '🌊',
+    pill: '💊',
+  }
+
+  return icons[iconKey] ?? ['☀️', '⚡', '🍊', '💊', '🌿'][fallbackIndex % 5]
+}
+
+function formatCondition(value) {
+  if (!value) return 'Perfil evaluado'
+  return value
+    .toLowerCase()
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
 const STEPS = [

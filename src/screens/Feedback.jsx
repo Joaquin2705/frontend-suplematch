@@ -1,24 +1,51 @@
 import { useState } from 'react'
+import { postFeedback } from '../api/suplematch'
 
 const OPCIONES = [
-  { emoji: '👍', title: 'Sí, tienen sentido',     sub: 'Me identifico con los resultados' },
-  { emoji: '🤔', title: 'Algunas sí, otras no',   sub: 'Hay partes que no me aplican'     },
-  { emoji: '👎', title: 'No me identifico',        sub: 'El análisis no fue acertado'      },
+  { emoji: '👍', title: 'Sí, tienen sentido',     sub: 'Me identifico con los resultados', rating: 5 },
+  { emoji: '🤔', title: 'Algunas sí, otras no',   sub: 'Hay partes que no me aplican',     rating: 3 },
+  { emoji: '👎', title: 'No me identifico',        sub: 'El análisis no fue acertado',      rating: 1 },
 ]
 
 const SUPLEMENTOS = ['Vitamina D3', 'Zinc', 'Vitamina C']
 
-export default function Feedback({ goTo, showToast }) {
+export default function Feedback({ goTo, showToast, apiResult }) {
   const [selected, setSelected]   = useState(null)
   const [checked,  setChecked]    = useState([])
+  const [sending,  setSending]    = useState(false)
 
   function toggleCheck(s) {
     setChecked(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
   }
 
-  function submit() {
-    showToast('¡Gracias! Tu feedback mejoró SupleMatch 🎉')
-    setTimeout(() => goTo('landing'), 2500)
+  async function submit() {
+    if (selected === null) {
+      showToast('Selecciona una opción')
+      return
+    }
+
+    const pack = apiResult?.packs_ranked?.[0]
+    const fallbackComponentIds = apiResult?.recomendaciones
+      ?.map(item => item.component_id)
+      .filter(Boolean) ?? []
+
+    setSending(true)
+    try {
+      await postFeedback({
+        recommendation_id: apiResult?.recommendation_id ?? 'rec_frontend_demo',
+        pack_id: pack?.pack_id,
+        component_ids: pack?.component_ids ?? fallbackComponentIds,
+        rating: OPCIONES[selected].rating,
+        conditions: apiResult?.conditions ?? [],
+        comment: checked.length ? `No aplica: ${checked.join(', ')}` : null,
+      })
+      showToast('¡Gracias! Tu feedback mejoró SupleMatch')
+      setTimeout(() => goTo('landing'), 2500)
+    } catch (error) {
+      showToast(error.message)
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -89,8 +116,8 @@ export default function Feedback({ goTo, showToast }) {
 
       {/* Submit */}
       <div style={{ marginTop: 20, textAlign: 'center' }}>
-        <button className="btn-primary" onClick={submit} style={{ marginBottom: 12 }}>
-          Enviar comentario ✓
+        <button className="btn-primary" onClick={submit} disabled={sending} style={{ marginBottom: 12 }}>
+          {sending ? 'Enviando...' : 'Enviar comentario ✓'}
         </button>
         <button onClick={() => goTo('landing')} style={{
           background: 'none', border: 'none', color: 'var(--gray-400)',
