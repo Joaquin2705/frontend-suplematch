@@ -26,9 +26,14 @@ function normalizeResult(result) {
   const conditions = result.conditions ?? []
   const conditionsDisplay = result.conditions_display ?? []
   const recommendations = result.recommendations ?? []
+  const packsRanked = result.packs_ranked ?? []
 
   return {
     ...result,
+    packs_ranked: packsRanked.map(pack => ({
+      ...pack,
+      selected_products: normalizeProducts(pack.selected_products ?? []),
+    })),
     condiciones: (conditionsDisplay.length ? conditionsDisplay : conditions.map(condition => ({ code: condition }))).map((condition, index) => ({
       nombre: condition.display_name ?? formatCondition(condition.code),
       nivel: condition.level ?? (index === 0 ? 'Detectado' : 'Relacionado'),
@@ -40,10 +45,44 @@ function normalizeResult(result) {
       nombre: item.display_name ?? item.name,
       razon: item.reason ?? item.condition_display ?? 'Recomendado para tu perfil',
       dosis: item.dosage_hint ?? item.type_display ?? 'Complementario',
-      precio: [16, 12, 8, 18, 22][index % 5],
+      products: normalizeProducts(item.products ?? []),
+      precio: bestProductPrice(item.products) ?? [16, 12, 8, 18, 22][index % 5],
       icon: iconToEmoji(item.icon_key, index),
     })),
   }
+}
+
+function normalizeProducts(products) {
+  return products
+    .filter(product => product?.url && product?.price != null)
+    .map(product => ({
+      pharmacy: product.pharmacy,
+      commercial_name: product.commercial_name,
+      formal_name: product.formal_name,
+      registro_sanitario: product.registro_sanitario,
+      digemid_producto: product.digemid_producto,
+      component_id: product.component_id,
+      ingredient: product.ingredient,
+      amount: product.amount,
+      unit: product.unit,
+      amount_mg: product.amount_mg,
+      component_match_score: product.component_match_score,
+      price: Number(product.price),
+      currency: product.currency ?? 'PEN',
+      availability: product.availability,
+      url: product.url,
+      sku: product.sku,
+      brand: product.brand,
+      regulatory_status: product.regulatory_status,
+    }))
+}
+
+function bestProductPrice(products = []) {
+  const prices = products
+    .map(product => Number(product?.price))
+    .filter(price => Number.isFinite(price))
+
+  return prices.length ? Math.min(...prices) : null
 }
 
 function iconToEmoji(iconKey, fallbackIndex = 0) {
