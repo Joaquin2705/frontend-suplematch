@@ -152,21 +152,27 @@ export default function Recomendaciones({ goTo, apiResult, setSelectedRec }) {
         })}
       </div>
 
-      {/* Alerts */}
-      <div style={{
-        background: 'var(--amber-light)', borderRadius: 'var(--radius-sm)',
-        padding: 16, border: '1px solid rgba(245,158,11,0.2)'
-      }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
-          Sinergias y alertas
+      {/* Sinergias y alertas dinámicas */}
+      {((apiResult?.sinergias?.length > 0) || (apiResult?.alertas?.length > 0)) && (
+        <div style={{
+          background: 'var(--amber-light)', borderRadius: 'var(--radius-sm)',
+          padding: 16, border: '1px solid rgba(245,158,11,0.2)'
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
+            Sinergias y alertas
+          </div>
+          {(apiResult?.sinergias ?? []).map((s, i) => (
+            <div key={i} style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 6, lineHeight: 1.5 }}>
+              💡 <strong>{s.component_a} + {s.component_b}</strong> · se complementan
+            </div>
+          ))}
+          {(apiResult?.alertas ?? []).map((a, i) => (
+            <div key={i} style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 6, lineHeight: 1.5 }}>
+              ⚠️ <strong>{a.component_a} + {a.component_b}</strong> · tomar con precaución
+            </div>
+          ))}
         </div>
-        <div style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 8, lineHeight: 1.5 }}>
-          💡 <strong>Zinc + Vitamina C</strong> se potencian mutuamente · tómalos juntos
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--gray-600)', lineHeight: 1.5 }}>
-          ⚠️ <strong>D3 + Calcio</strong> · si usas ambos, tomar separados
-        </div>
-      </div>
+      )}
 
       <div style={{ marginTop: 20 }}>
         <button className="btn-primary dark" onClick={() => goTo('feedback')}>

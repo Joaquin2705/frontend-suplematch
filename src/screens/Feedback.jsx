@@ -7,9 +7,10 @@ const OPCIONES = [
   { emoji: '👎', title: 'No me identifico',        sub: 'El análisis no fue acertado',      rating: 1 },
 ]
 
-const SUPLEMENTOS = ['Vitamina D3', 'Zinc', 'Vitamina C']
+const SUPLEMENTOS_FALLBACK = ['Vitamina D3', 'Zinc', 'Vitamina C']
 
 export default function Feedback({ goTo, showToast, apiResult }) {
+  const suplementos = apiResult?.recomendaciones?.map(r => r.nombre).filter(Boolean) ?? SUPLEMENTOS_FALLBACK
   const [selected, setSelected]   = useState(null)
   const [checked,  setChecked]    = useState([])
   const [sending,  setSending]    = useState(false)
@@ -88,7 +89,7 @@ export default function Feedback({ goTo, showToast, apiResult }) {
           ¿Cuál no aplica? (opcional)
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {SUPLEMENTOS.map(s => {
+          {suplementos.map(s => {
             const on = checked.includes(s)
             return (
               <div key={s} onClick={() => toggleCheck(s)} style={{

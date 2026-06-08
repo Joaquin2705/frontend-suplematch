@@ -34,12 +34,18 @@ function normalizeResult(result) {
       ...pack,
       selected_products: normalizeProducts(pack.selected_products ?? []),
     })),
-    condiciones: (conditionsDisplay.length ? conditionsDisplay : conditions.map(condition => ({ code: condition }))).map((condition, index) => ({
-      nombre: condition.display_name ?? formatCondition(condition.code),
-      nivel: condition.level ?? (index === 0 ? 'Detectado' : 'Relacionado'),
-      probabilidad: condition.probability ?? (index === 0 ? 0.82 : 0.55),
-      emoji: iconToEmoji(condition.icon_key, index),
-    })),
+    condiciones: (conditionsDisplay.length ? conditionsDisplay : conditions.map(condition => ({ code: condition }))).map((condition, index) => {
+      const expl = (result.explainability ?? []).find(e => e.condition === condition.code)
+      return {
+        code: condition.code,
+        nombre: condition.display_name ?? formatCondition(condition.code),
+        nivel: condition.level ?? (index === 0 ? 'Detectado' : 'Relacionado'),
+        probabilidad: condition.probability ?? (index === 0 ? 0.82 : 0.55),
+        emoji: iconToEmoji(condition.icon_key, index),
+        drivers: expl?.drivers ?? [],
+      }
+    }),
+    explainability: result.explainability ?? [],
     recomendaciones: recommendations.map((item, index) => ({
       component_id: item.component_id,
       nombre: item.display_name ?? item.name,
