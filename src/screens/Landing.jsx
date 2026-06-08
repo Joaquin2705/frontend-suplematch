@@ -42,7 +42,7 @@ export default function Landing({ goTo }) {
       {/* CTA */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {['Basado en tu perfil real','Sin registro · Solo 2 minutos','Recomendaciones con evidencia'].map(t => (
+          {['Basado en tu perfil real','Sin registro · Solo unos minutos','Recomendaciones con evidencia'].map(t => (
             <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--gray-400)' }}>
               <span style={{ color: 'var(--green)', fontWeight: 700 }}>✓</span> {t}
             </div>

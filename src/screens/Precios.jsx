@@ -139,6 +139,7 @@ function diversifyProducts(products) {
 
 function pharmacyIcon(pharmacy = '') {
   const name = pharmacy.toLowerCase()
+  if (name.includes('inkafarma')) return '🟠'
   if (name.includes('mifarma')) return '💙'
   if (name.includes('universal')) return '🏥'
   if (name.includes('boticas')) return '➕'

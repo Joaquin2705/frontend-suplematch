@@ -8,6 +8,7 @@ export default function Recomendaciones({ goTo, apiResult, setSelectedRec }) {
   const recs = apiResult?.recomendaciones ?? FALLBACK
   const topPack = apiResult?.packs_ranked?.[0]
   const selectedProducts = topPack?.selected_products ?? []
+  const profileWarnings = apiResult?.profile_warnings ?? []
 
   function verPrecios(r) {
     setSelectedRec(r)
@@ -51,7 +52,7 @@ export default function Recomendaciones({ goTo, apiResult, setSelectedRec }) {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
           {recs.map(r => (
-            <div key={r.nombre} style={{
+            <div key={r.component_id ?? r.nombre} style={{
               background: 'white', borderRadius: 99, padding: '6px 14px',
               fontSize: 13, fontWeight: 600, color: 'var(--gray-800)',
               display: 'flex', alignItems: 'center', gap: 5,
@@ -69,6 +70,24 @@ export default function Recomendaciones({ goTo, apiResult, setSelectedRec }) {
           ✅ Combo seguro y compatible
         </div>
       </div>
+
+      {profileWarnings.length > 0 && (
+        <div style={{
+          background: 'var(--amber-light)', borderRadius: 'var(--radius-sm)',
+          padding: 16, border: '1px solid rgba(245,158,11,0.25)', marginBottom: 20
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
+            Precauciones de tu perfil
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {profileWarnings.map((warning, index) => (
+              <div key={index} style={{ fontSize: 12, color: 'var(--gray-600)', lineHeight: 1.45 }}>
+                {warning}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {selectedProducts.length > 0 && (
         <div style={{
@@ -120,7 +139,7 @@ export default function Recomendaciones({ goTo, apiResult, setSelectedRec }) {
         {recs.map(r => {
           const product = bestProduct(r)
           return (
-          <div key={r.nombre} onClick={() => verPrecios(r)} style={{
+          <div key={r.component_id ?? r.nombre} onClick={() => verPrecios(r)} style={{
             background: 'white', borderRadius: 'var(--radius-sm)', padding: 16,
             display: 'flex', alignItems: 'center', gap: 14,
             boxShadow: 'var(--shadow)', cursor: 'pointer'
@@ -134,6 +153,16 @@ export default function Recomendaciones({ goTo, apiResult, setSelectedRec }) {
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--gray-800)' }}>{r.nombre}</div>
               <div style={{ fontSize: 12, color: 'var(--gray-400)', margin: '2px 0' }}>{r.razon}</div>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--green-dark)' }}>{r.dosis}</div>
+              {r.already_taking && (
+                <div style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 700, marginTop: 5 }}>
+                  Ya indicaste que consumes algo similar.
+                </div>
+              )}
+              {r.safety_note && (
+                <div style={{ fontSize: 11, color: 'var(--gray-600)', marginTop: 4, lineHeight: 1.35 }}>
+                  {r.safety_note}
+                </div>
+              )}
               {product && (
                 <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 5 }}>
                   {product.pharmacy} · RS {product.registro_sanitario}
@@ -145,7 +174,7 @@ export default function Recomendaciones({ goTo, apiResult, setSelectedRec }) {
               background: 'var(--green-light)', border: 'none',
               borderRadius: 8, padding: '6px 12px', cursor: 'pointer', whiteSpace: 'nowrap'
             }}>
-              {product ? `${formatPrice(product.price)} →` : `S/ ${r.precio} →`}
+              {product ? `${formatPrice(product.price)} →` : `${formatPrice(r.precio)} →`}
             </button>
           </div>
           )

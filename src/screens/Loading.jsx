@@ -5,16 +5,17 @@ const MOCK_RESULT = {
   recommendation_id: 'rec_mock',
   packs_ranked: [],
   conditions: ['DEFICIT_VIT_D', 'BAJA_INMUNIDAD'],
-  recomendaciones: [
-    { icon: '☀️', nombre: 'Vitamina D3', dosis: '1000 UI / día', razon: 'Por déficit detectado',  precio: 16 },
-    { icon: '⚡', nombre: 'Zinc',        dosis: '15 mg / día',   razon: 'Refuerza inmunidad',      precio: 12 },
-    { icon: '🍊', nombre: 'Vitamina C',  dosis: '500 mg / día',  razon: 'Potencia el zinc',        precio: 8  },
+  conditions_display: [
+    { code: 'DEFICIT_VIT_D', display_name: 'Déficit de Vitamina D', level: 'Alta prob.',  probability: 0.82, icon_key: 'sun'      },
+    { code: 'BAJA_INMUNIDAD', display_name: 'Baja Inmunidad',        level: 'Media prob.', probability: 0.55, icon_key: 'activity' },
   ],
-  condiciones: [
-    { nombre: 'Déficit de Vitamina D', nivel: 'Alta prob.',  probabilidad: 0.82, emoji: '😌' },
-    { nombre: 'Baja Inmunidad',        nivel: 'Media prob.', probabilidad: 0.55, emoji: '🛡️' },
-    { nombre: 'Base saludable',        nivel: 'Confirmado',  probabilidad: 0.28, emoji: '✅' },
+  recommendations: [
+    { component_id: 'vit_d', display_name: 'Vitamina D3',  reason: 'Por déficit detectado', dosage_hint: '1000 UI / día', icon_key: 'sun',    products: [] },
+    { component_id: 'zinc',  display_name: 'Zinc',         reason: 'Refuerza inmunidad',     dosage_hint: '15 mg / día',   icon_key: 'zap',    products: [] },
+    { component_id: 'vit_c', display_name: 'Vitamina C',   reason: 'Potencia el zinc',       dosage_hint: '500 mg / día',  icon_key: 'citrus', products: [] },
   ],
+  explainability: [],
+  profile_warnings: [],
 }
 
 async function callBackend(userData) {
@@ -51,10 +52,13 @@ function normalizeResult(result) {
       nombre: item.display_name ?? item.name,
       razon: item.reason ?? item.condition_display ?? 'Recomendado para tu perfil',
       dosis: item.dosage_hint ?? item.type_display ?? 'Complementario',
+      already_taking: Boolean(item.already_taking),
+      safety_note: item.safety_note ?? null,
       products: normalizeProducts(item.products ?? []),
       precio: bestProductPrice(item.products) ?? [16, 12, 8, 18, 22][index % 5],
       icon: iconToEmoji(item.icon_key, index),
     })),
+    profile_warnings: result.profile_warnings ?? [],
   }
 }
 
@@ -80,6 +84,11 @@ function normalizeProducts(products) {
       sku: product.sku,
       brand: product.brand,
       regulatory_status: product.regulatory_status,
+      product_score: product.product_score,
+      review_score: product.review_score,
+      review_count: product.review_count ?? 0,
+      avg_rating: product.avg_rating,
+      selection_reasons: product.selection_reasons ?? [],
     }))
 }
 
@@ -133,7 +142,7 @@ export default function Loading({ goTo, userData, setApiResult }) {
       try {
         result = await callBackend(userData)
       } catch {
-        result = MOCK_RESULT
+        result = normalizeResult(MOCK_RESULT)
       }
 
       if (cancelled) return

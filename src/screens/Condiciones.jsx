@@ -11,8 +11,8 @@ const IMPACT_COLORS = {
 }
 
 function condStyle(prob) {
-  if (prob >= 0.65) return { bg: '#FFFBEB', border: '#F59E0B', barC: '#F59E0B' }
-  if (prob >= 0.40) return { bg: '#FFF7ED', border: '#FB923C', barC: '#FB923C' }
+  if (prob >= 0.65) return { bg: '#FFF7ED', border: '#FB923C', barC: '#FB923C' }
+  if (prob >= 0.40) return { bg: '#FFFBEB', border: '#F59E0B', barC: '#F59E0B' }
   return { bg: 'var(--green-light)', border: 'var(--green)', barC: 'var(--green)' }
 }
 
