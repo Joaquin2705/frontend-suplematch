@@ -1,13 +1,50 @@
-export default function Landing({ goTo }) {
+import { logout as apiLogout, logoutAll as apiLogoutAll } from '../api/suplematch'
+
+export default function Landing({ goTo, authToken, setAuthToken, authUser, setAuthUser }) {
+  const roles = new Set(authUser?.roles ?? [])
+  const canAdmin = roles.has('admin')
+  const canModerate = roles.has('admin') || roles.has('moderator')
+
+  async function logoutAllDevices() {
+    try {
+      await apiLogoutAll(authToken)
+    } catch {
+      // cierra sesión local de todas formas
+    }
+    localStorage.removeItem('suplematch_token')
+    localStorage.removeItem('suplematch_refresh_token')
+    localStorage.removeItem('suplematch_user')
+    setAuthToken(null)
+    setAuthUser(null)
+  }
+
+  async function logout() {
+    const refreshToken = localStorage.getItem('suplematch_refresh_token')
+    if (refreshToken) {
+      try {
+        await apiLogout(refreshToken)
+      } catch {
+        // Local logout still clears an unusable or expired server session.
+      }
+    }
+    localStorage.removeItem('suplematch_token')
+    localStorage.removeItem('suplematch_refresh_token')
+    localStorage.removeItem('suplematch_user')
+    setAuthToken(null)
+    setAuthUser(null)
+  }
+
   return (
     <div className="screen" style={{ background: 'white', alignItems: 'center', justifyContent: 'space-between' }}>
       {/* Logo */}
       <div style={{ marginTop: 20, textAlign: 'center' }}>
         <div style={{
-          width: 72, height: 72, background: 'var(--green-light)',
+          width: 72, height: 72, background: 'var(--green)',
           borderRadius: 22, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', margin: '0 auto 14px', fontSize: 36
-        }}>💊</div>
+          justifyContent: 'center', margin: '0 auto 14px',
+        }}>
+          <span style={{ fontSize: 26, fontWeight: 900, color: 'white', letterSpacing: -1 }}>SM</span>
+        </div>
         <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--gray-800)', letterSpacing: -0.5 }}>
           Suple<span style={{ color: 'var(--green)' }}>Match</span>
         </div>
@@ -51,6 +88,44 @@ export default function Landing({ goTo }) {
         <button className="btn-primary" onClick={() => goTo('encuesta')}>
           Iniciar evaluación →
         </button>
+        <button className="btn-secondary" onClick={() => goTo('examenes')}>
+          Analizar exámenes
+        </button>
+        <div style={{ display: 'grid', gridTemplateColumns: canModerate ? '1fr 1fr' : '1fr', gap: 8 }}>
+          <button className="btn-secondary" onClick={() => goTo('historial')}>Historial</button>
+          {canModerate && <button className="btn-secondary" onClick={() => goTo('adminReviews')}>Reviews</button>}
+        </div>
+        {canAdmin && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <button className="btn-secondary" onClick={() => goTo('adminCatalog')}>Catálogo</button>
+            <button className="btn-secondary" onClick={() => goTo('adminOps')}>Operación</button>
+            <button className="btn-secondary" onClick={() => goTo('adminSafetyRules')}>Safety</button>
+            <button className="btn-secondary" onClick={() => goTo('adminReviews')}>Moderación</button>
+          </div>
+        )}
+        {authUser && (
+          <div style={{ fontSize: 12, color: 'var(--gray-400)', textAlign: 'center' }}>
+            {authUser.email} · {(authUser.roles ?? ['user']).join(', ')}
+          </div>
+        )}
+        <button
+          onClick={() => authToken ? logout() : goTo('acceso')}
+          style={{ background: 'none', border: 'none', color: 'var(--gray-400)', fontSize: 13, cursor: 'pointer', padding: 4 }}
+        >
+          {authToken ? 'Cerrar sesión' : 'Iniciar sesión'}
+        </button>
+        {authToken && (
+          <button
+            onClick={logoutAllDevices}
+            style={{ background: 'none', border: 'none', color: 'var(--gray-400)', fontSize: 12, cursor: 'pointer', padding: 4 }}
+          >
+            Cerrar sesiones en todos los dispositivos
+          </button>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 14, fontSize: 12 }}>
+          <button type="button" onClick={() => goTo('privacidad')} style={{ background: 'none', border: 'none', color: 'var(--gray-400)', cursor: 'pointer' }}>Privacidad</button>
+          <button type="button" onClick={() => goTo('terminos')} style={{ background: 'none', border: 'none', color: 'var(--gray-400)', cursor: 'pointer' }}>Términos</button>
+        </div>
       </div>
     </div>
   )

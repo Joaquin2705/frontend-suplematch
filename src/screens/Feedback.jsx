@@ -9,7 +9,7 @@ const OPCIONES = [
 
 const SUPLEMENTOS_FALLBACK = ['Vitamina D3', 'Zinc', 'Vitamina C']
 
-export default function Feedback({ goTo, showToast, apiResult }) {
+export default function Feedback({ goTo, showToast, apiResult, authToken }) {
   const suplementos = apiResult?.recomendaciones?.map(r => r.nombre).filter(Boolean) ?? SUPLEMENTOS_FALLBACK
   const [selected, setSelected]   = useState(null)
   const [checked,  setChecked]    = useState([])
@@ -39,7 +39,7 @@ export default function Feedback({ goTo, showToast, apiResult }) {
         rating: OPCIONES[selected].rating,
         conditions: apiResult?.conditions ?? [],
         comment: checked.length ? `No aplica: ${checked.join(', ')}` : null,
-      })
+      }, authToken)
       showToast('¡Gracias! Tu feedback mejoró SupleMatch')
       setTimeout(() => goTo('landing'), 2500)
     } catch (error) {

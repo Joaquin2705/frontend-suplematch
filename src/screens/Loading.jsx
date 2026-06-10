@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { postRecommendation } from '../api/suplematch'
 
 const MOCK_RESULT = {
@@ -16,10 +16,13 @@ const MOCK_RESULT = {
   ],
   explainability: [],
   profile_warnings: [],
+  safety_level: 'normal',
+  safety_actions: [],
+  commercial_recommendations_blocked: false,
 }
 
-async function callBackend(userData) {
-  const result = await postRecommendation(userData)
+async function callBackend(userData, authToken) {
+  const result = await postRecommendation(userData, authToken)
   return normalizeResult(result)
 }
 
@@ -51,6 +54,7 @@ function normalizeResult(result) {
       component_id: item.component_id,
       nombre: item.display_name ?? item.name,
       razon: item.reason ?? item.condition_display ?? 'Recomendado para tu perfil',
+      condicion_display: item.condition_display ?? null,
       dosis: item.dosage_hint ?? item.type_display ?? 'Complementario',
       already_taking: Boolean(item.already_taking),
       safety_note: item.safety_note ?? null,
@@ -67,6 +71,7 @@ function normalizeProducts(products) {
     .filter(product => product?.url && product?.price != null)
     .map(product => ({
       pharmacy: product.pharmacy,
+      product_id: product.product_id,
       commercial_name: product.commercial_name,
       formal_name: product.formal_name,
       registro_sanitario: product.registro_sanitario,
@@ -89,6 +94,14 @@ function normalizeProducts(products) {
       review_count: product.review_count ?? 0,
       avg_rating: product.avg_rating,
       selection_reasons: product.selection_reasons ?? [],
+      restriction_warnings: product.restriction_warnings ?? [],
+      restriction_penalty: product.restriction_penalty ?? 0,
+      restriction_boost: product.restriction_boost ?? 0,
+      restriction_flags: product.restriction_flags ?? [],
+      restriction_flags_verified: product.restriction_flags_verified ?? [],
+      restriction_flags_inferred: product.restriction_flags_inferred ?? [],
+      label_verified_at: product.label_verified_at,
+      label_verification_source: product.label_verification_source,
     }))
 }
 
@@ -125,28 +138,19 @@ function formatCondition(value) {
     .join(' ')
 }
 
-const STEPS = [
-  'Hábitos procesados',
-  'Síntomas evaluados',
-  'Detectando condiciones...',
-]
-
-export default function Loading({ goTo, userData, setApiResult }) {
-  const [doneCount, setDoneCount] = useState(2)
-
+export default function Loading({ goTo, userData, setApiResult, authToken }) {
   useEffect(() => {
     let cancelled = false
 
     async function run() {
       let result
       try {
-        result = await callBackend(userData)
+        result = await callBackend(userData, authToken)
       } catch {
         result = normalizeResult(MOCK_RESULT)
       }
 
       if (cancelled) return
-      setDoneCount(3)
       setTimeout(() => {
         if (!cancelled) {
           setApiResult(result)
@@ -155,38 +159,25 @@ export default function Loading({ goTo, userData, setApiResult }) {
       }, 600)
     }
 
-    const t = setTimeout(run, 1200)
-    return () => { cancelled = true; clearTimeout(t) }
-  }, [goTo, userData, setApiResult])
+    run()
+    return () => { cancelled = true }
+  }, [goTo, userData, setApiResult, authToken])
 
   return (
-    <div className="screen" style={{ background: 'white', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
+    <div className="screen" style={{ background: 'white', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <div style={{
-        width: 72, height: 72, borderRadius: '50%',
+        width: 64, height: 64, borderRadius: '50%',
         border: '4px solid var(--gray-200)',
         borderTopColor: 'var(--green)',
         animation: 'spin 1s linear infinite'
       }} />
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gray-800)', marginBottom: 32 }}>
+        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gray-800)', marginBottom: 8 }}>
           Analizando tu perfil...
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {STEPS.map((label, i) => {
-            const done = i < doneCount
-            const isLast = i === STEPS.length - 1
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 18, width: 28, textAlign: 'center' }}>{done ? '✅' : '⏳'}</span>
-                <span style={{ fontSize: 15, color: done ? 'var(--green)' : 'var(--gray-400)', fontWeight: done ? 500 : 400 }}>
-                  {done && isLast ? 'Condiciones detectadas' : label}
-                </span>
-              </div>
-            )
-          })}
+        <div style={{ fontSize: 14, color: 'var(--gray-400)' }}>
+          Esto puede tomar unos segundos
         </div>
       </div>
     </div>

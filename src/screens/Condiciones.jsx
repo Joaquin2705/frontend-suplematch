@@ -18,6 +18,61 @@ function condStyle(prob) {
 
 export default function Condiciones({ goTo, apiResult }) {
   const condiciones = apiResult?.condiciones ?? FALLBACK
+  const safetyLevel = apiResult?.safety_level ?? 'normal'
+  const safetyActions = apiResult?.safety_actions ?? []
+
+  const GOAL_CODES = new Set(['RENDIMIENTO_DEPORTIVO', 'SALUD_CAPILAR', 'SALUD_CAPILAR_PIEL', 'SALUD_COGNITIVA', 'SALUD_OSEA'])
+  const deficits = condiciones.filter(c => !GOAL_CODES.has(c.code))
+
+  function CondCard({ c }) {
+    const s = condStyle(c.probabilidad)
+    const drivers = c.drivers ?? []
+    return (
+      <div style={{
+        borderRadius: 'var(--radius)', padding: '18px 20px',
+        background: s.bg, borderLeft: `4px solid ${s.border}`,
+        boxShadow: 'var(--shadow)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: drivers.length ? 14 : 0 }}>
+          <span style={{ fontSize: 32 }}>{c.emoji}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-800)', marginBottom: 6 }}>{c.nombre}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1, height: 6, background: 'rgba(0,0,0,0.08)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.round(c.probabilidad * 100)}%`, background: s.barC, borderRadius: 99 }} />
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--gray-400)', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                {Math.round(c.probabilidad * 100)}% · {c.nivel}
+              </span>
+            </div>
+          </div>
+        </div>
+        {drivers.length > 0 && (
+          <div style={{ paddingTop: 12, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
+              ¿Por qué?
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {drivers.map((d, j) => {
+                const ic = IMPACT_COLORS[d.impact] ?? IMPACT_COLORS.bajo
+                return (
+                  <div key={j} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontSize: 13, color: 'var(--gray-700)' }}>{d.label}</span>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99,
+                      background: ic.bg, color: ic.text, whiteSpace: 'nowrap'
+                    }}>
+                      {d.value_label}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="screen" style={{ background: 'var(--gray-50)', gap: 0 }}>
@@ -30,59 +85,27 @@ export default function Condiciones({ goTo, apiResult }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
-        {condiciones.map((c, i) => {
-          const s = condStyle(c.probabilidad)
-          const drivers = c.drivers ?? []
-          return (
-            <div key={i} style={{
-              borderRadius: 'var(--radius)', padding: '18px 20px',
-              background: s.bg, borderLeft: `4px solid ${s.border}`,
-              boxShadow: 'var(--shadow)'
-            }}>
-              {/* Condición + barra */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: drivers.length ? 14 : 0 }}>
-                <span style={{ fontSize: 32 }}>{c.emoji}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-800)', marginBottom: 6 }}>{c.nombre}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: 1, height: 6, background: 'rgba(0,0,0,0.08)', borderRadius: 99, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${Math.round(c.probabilidad * 100)}%`, background: s.barC, borderRadius: 99 }} />
-                    </div>
-                    <span style={{ fontSize: 11, color: 'var(--gray-400)', whiteSpace: 'nowrap', fontWeight: 600 }}>
-                      {Math.round(c.probabilidad * 100)}% · {c.nivel}
-                    </span>
-                  </div>
-                </div>
-              </div>
+      {safetyLevel === 'medical_review_required' && (
+        <div style={{
+          background: '#FEF2F2',
+          border: '1px solid #FCA5A5',
+          borderRadius: 'var(--radius-sm)',
+          padding: 14,
+          marginBottom: 16,
+        }}>
+          <div style={{ fontSize: 12, color: '#B91C1C', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
+            Revisión médica requerida
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {safetyActions.map(action => (
+              <span key={action} style={{ fontSize: 12, color: '#7F1D1D', lineHeight: 1.4 }}>{action}</span>
+            ))}
+          </div>
+        </div>
+      )}
 
-              {/* Drivers — por qué se detectó esta condición */}
-              {drivers.length > 0 && (
-                <div style={{ paddingTop: 12, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
-                    ¿Por qué?
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {drivers.map((d, j) => {
-                      const ic = IMPACT_COLORS[d.impact] ?? IMPACT_COLORS.bajo
-                      return (
-                        <div key={j} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                          <span style={{ fontSize: 13, color: 'var(--gray-700)' }}>{d.label}</span>
-                          <span style={{
-                            fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99,
-                            background: ic.bg, color: ic.text, whiteSpace: 'nowrap'
-                          }}>
-                            {d.value_label}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
+        {deficits.map((c, i) => <CondCard key={i} c={c} />)}
       </div>
 
       <div style={{ marginTop: 'auto', paddingTop: 24 }}>
@@ -91,6 +114,9 @@ export default function Condiciones({ goTo, apiResult }) {
         </p>
         <button className="btn-primary" onClick={() => goTo('recomendaciones')}>
           Ver mis recomendaciones →
+        </button>
+        <button onClick={() => goTo('encuesta')} style={{ background: 'none', border: 'none', color: 'var(--gray-400)', fontSize: 13, cursor: 'pointer', width: '100%', marginTop: 12, padding: 4 }}>
+          ← Modificar respuestas
         </button>
       </div>
     </div>

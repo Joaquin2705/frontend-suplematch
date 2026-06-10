@@ -1,0 +1,10 @@
+.git
+node_modules
+dist
+test-results
+playwright-report
+.env
+.env.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

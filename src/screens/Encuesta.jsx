@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback, useRef } from 'react'
+import surveyContract from '../contracts/surveyContract.json'
 
 const SYMPTOM_FIELDS = {
   dolor_muscular: 'dolor_muscular',
@@ -278,18 +279,191 @@ const QUESTIONS = [
   },
   {
     key: 'presupuesto',
-    title: '¿Qué presupuesto prefieres para comparar productos?',
-    sub: 'Afecta el orden de productos comerciales, no la necesidad nutricional estimada.',
-    type: 'single',
-    required: true,
-    options: [
-      { label: 'Bajo', value: 'bajo', detail: 'Priorizar opciones económicas.' },
-      { label: 'Medio', value: 'medio', detail: 'Balance entre precio y calidad.' },
-      { label: 'Alto', value: 'alto', detail: 'Puede priorizar mejores métricas aunque cueste más.' },
-      { label: 'Sin preferencia', value: 'sin_preferencia', detail: 'Usar ranking general.' },
-    ],
+    title: '¿Cuánto quieres gastar en suplementos?',
+    sub: 'Arrastra los controles para indicar tu rango de precio mensual en soles. El sistema priorizará productos dentro de este rango.',
+    type: 'price_range',
+    required: false,
+    min: 0,
+    max: 500,
+    step: 10,
   },
 ]
+
+function PriceRangeQuestion({ q, answers, onChange }) {
+  const stored = answers[q.key] || {}
+  const rangeMin = q.min ?? 0
+  const rangeMax = q.max ?? 500
+  const step = q.step ?? 10
+
+  const currentMin = stored.min ?? rangeMin
+  const currentMax = stored.max ?? rangeMax
+  const hasPreference = stored.min != null || stored.max != null
+
+  const trackRef = useRef(null)
+  const draggingRef = useRef(null)
+
+  const pct = (val) => ((val - rangeMin) / (rangeMax - rangeMin)) * 100
+
+  function snapToStep(raw) {
+    return Math.round(raw / step) * step
+  }
+
+  function valueFromPointer(clientX) {
+    const rect = trackRef.current.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    return snapToStep(rangeMin + ratio * (rangeMax - rangeMin))
+  }
+
+  function handlePointerDown(e) {
+    const val = valueFromPointer(e.clientX)
+    const distMin = Math.abs(val - currentMin)
+    const distMax = Math.abs(val - currentMax)
+    draggingRef.current = distMin <= distMax ? 'min' : 'max'
+    e.currentTarget.setPointerCapture(e.pointerId)
+    applyDrag(val)
+  }
+
+  function handlePointerMove(e) {
+    if (!draggingRef.current) return
+    applyDrag(valueFromPointer(e.clientX))
+  }
+
+  function handlePointerUp() {
+    draggingRef.current = null
+  }
+
+  function applyDrag(val) {
+    if (draggingRef.current === 'min') {
+      onChange({ min: Math.min(val, currentMax - step), max: currentMax })
+    } else {
+      onChange({ min: currentMin, max: Math.max(val, currentMin + step) })
+    }
+  }
+
+  const thumbStyle = {
+    position: 'absolute',
+    top: '50%',
+    width: 22,
+    height: 22,
+    borderRadius: '50%',
+    background: hasPreference ? 'var(--green)' : 'var(--gray-400)',
+    border: '3px solid white',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+    transform: 'translate(-50%, -50%)',
+    pointerEvents: 'none',
+    zIndex: 2,
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, flex: 1, paddingTop: 8 }}>
+      <div style={{
+        background: hasPreference ? 'var(--green-light)' : 'var(--gray-50)',
+        border: `2px solid ${hasPreference ? 'var(--green)' : 'var(--gray-200)'}`,
+        borderRadius: 'var(--radius-sm)',
+        padding: '16px 20px',
+        textAlign: 'center',
+      }}>
+        {hasPreference ? (
+          <>
+            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--green-dark)' }}>
+              S/ {currentMin} – S/ {currentMax}
+            </span>
+            <p style={{ fontSize: 12, color: 'var(--gray-600)', margin: '4px 0 0 0' }}>
+              rango mensual en soles
+            </p>
+          </>
+        ) : (
+          <span style={{ fontSize: 15, color: 'var(--gray-400)' }}>Sin preferencia de precio</span>
+        )}
+      </div>
+
+      <div style={{ padding: '0 12px' }}>
+        <div
+          ref={trackRef}
+          style={{ position: 'relative', height: 40, cursor: 'pointer', touchAction: 'none' }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+        >
+          {/* Track base */}
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            left: 0,
+            right: 0,
+            height: 6,
+            background: 'var(--gray-200)',
+            borderRadius: 3,
+          }} />
+          {/* Active range */}
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            left: `${pct(currentMin)}%`,
+            right: `${100 - pct(currentMax)}%`,
+            height: 6,
+            background: hasPreference ? 'var(--green)' : 'var(--gray-300)',
+            borderRadius: 3,
+            transition: 'background 0.2s',
+          }} />
+          {/* Thumb min */}
+          <div style={{ ...thumbStyle, left: `${pct(currentMin)}%` }} />
+          {/* Thumb max */}
+          <div style={{ ...thumbStyle, left: `${pct(currentMax)}%` }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--gray-400)', marginTop: 4 }}>
+          <span>S/ {rangeMin}</span>
+          <span>S/ {rangeMax}</span>
+        </div>
+      </div>
+
+      {hasPreference && (
+        <button
+          type="button"
+          onClick={() => onChange({})}
+          style={{
+            background: 'none',
+            border: '1px solid var(--gray-200)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '8px 16px',
+            fontSize: 12,
+            color: 'var(--gray-500)',
+            cursor: 'pointer',
+            alignSelf: 'center',
+          }}
+        >
+          Quitar preferencia de precio
+        </button>
+      )}
+    </div>
+  )
+}
+
+function validateQuestionContract() {
+  const enums = surveyContract.enums || {}
+  const mismatches = []
+
+  for (const question of QUESTIONS) {
+    if (question.type === 'price_range') continue
+    const allowedValues = enums[question.key]
+    if (!allowedValues) continue
+
+    const allowed = new Set(allowedValues)
+    for (const option of question.options) {
+      if (!allowed.has(option.value)) {
+        mismatches.push(`${question.key}.${option.value}`)
+      }
+    }
+  }
+
+  if (mismatches.length > 0) {
+    throw new Error(`Contrato de encuesta desalineado: ${mismatches.join(', ')}`)
+  }
+}
+
+validateQuestionContract()
 
 function visibleQuestions(answers) {
   return QUESTIONS.filter(q => !q.when || q.when(answers))
@@ -325,11 +499,27 @@ function buildPayload(answers) {
       continue
     }
 
+    if (q.type === 'price_range') {
+      if (value && typeof value === 'object') {
+        if (value.min != null) payload.presupuesto_min = value.min
+        if (value.max != null) payload.presupuesto_max = value.max
+      }
+      continue
+    }
+
     payload[q.key] = value
   }
 
   if (payload.toma_suplementos === 'no') {
     payload.suplementos_actuales = []
+  }
+  try {
+    const labResults = JSON.parse(localStorage.getItem('suplematch_lab_results') || '[]')
+    if (Array.isArray(labResults) && labResults.length > 0) {
+      payload.lab_results = labResults.slice(0, 40)
+    }
+  } catch {
+    // Ignore invalid localStorage data.
   }
   if (!payload.objetivos) payload.objetivos = []
   return payload
@@ -338,21 +528,95 @@ function buildPayload(answers) {
 function answerIsValid(q, answers) {
   const value = answers[q.key]
   if (!q.required) return true
+  if (q.type === 'price_range') return true
   if (q.type === 'single') return value !== undefined
   return Array.isArray(value) && value.length > 0
 }
 
+function answerLabel(q, answers) {
+  const value = answers[q.key]
+
+  if (q.type === 'price_range') {
+    if (!value || typeof value !== 'object') return 'Sin preferencia'
+    const { min, max } = value
+    if (min == null && max == null) return 'Sin preferencia'
+    if (min != null && max != null) return `S/ ${min} – S/ ${max}`
+    if (max != null) return `Hasta S/ ${max}`
+    return `Desde S/ ${min}`
+  }
+
+  if (value === undefined) return 'Sin responder'
+
+  if (q.type === 'single') {
+    return q.options.find(opt => opt.value === value)?.label || String(value)
+  }
+
+  if (!Array.isArray(value) || value.length === 0) return 'Sin responder'
+  const labels = value.map(item => q.options.find(opt => opt.value === item)?.label || item)
+  return labels.join(', ')
+}
+
+function safetyAlerts(answers) {
+  const alerts = []
+  const conditions = answers.condiciones_seguridad || []
+
+  if (answers.edad_rango === 'menos_18') {
+    alerts.push('Menor de edad: requiere supervisión de un adulto y profesional de salud antes de usar suplementos.')
+  }
+  if (conditions.includes('embarazo_lactancia')) {
+    alerts.push('Embarazo o lactancia: no inicies suplementos sin validación profesional.')
+  }
+  if (conditions.includes('anticoagulantes')) {
+    alerts.push('Uso de anticoagulantes: revisa interacciones, especialmente con omega 3, vitamina K y fórmulas herbales.')
+  }
+  if (conditions.includes('enfermedad_renal')) {
+    alerts.push('Enfermedad renal: evita minerales o dosis altas sin control médico.')
+  }
+  if (conditions.includes('enfermedad_hepatica')) {
+    alerts.push('Enfermedad hepática: revisa seguridad y dosis con un profesional antes de tomar suplementos.')
+  }
+  if (conditions.includes('medicacion_cronica')) {
+    alerts.push('Medicación crónica: confirma posibles interacciones antes de iniciar cualquier suplemento.')
+  }
+
+  return alerts
+}
+
 export default function Encuesta({ goTo, showToast, setUserData }) {
   const [step, setStep] = useState(0)
-  const [answers, setAnswers] = useState({})
+  const [answers, setAnswers] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('suplematch_encuesta_answers')) || {} } catch { return {} }
+  })
+  const hasSaved = Object.keys(answers).length > 0
+  const [resumeModal, setResumeModal] = useState(hasSaved)
+  const [acceptedConsent, setAcceptedConsent] = useState(false)
+  const [legalNote, setLegalNote] = useState(null)
+  const [editingFromSummary, setEditingFromSummary] = useState(false)
+  const [confirmExit, setConfirmExit] = useState(false)
 
   const questions = useMemo(() => visibleQuestions(answers), [answers])
-  const total = questions.length
-  const q = questions[Math.min(step, total - 1)]
-  const pct = Math.max(Math.round(((step + 1) / total) * 100), 8)
+  const summaryStep = questions.length
+  const total = questions.length + 1
+  const isSummary = step >= summaryStep
+  const q = isSummary ? null : questions[Math.min(step, questions.length - 1)]
+  const pct = Math.max(Math.round(((Math.min(step, total - 1) + 1) / total) * 100), 8)
+  const alerts = isSummary ? safetyAlerts(answers) : []
+  const summaryQuestions = isSummary ? questions.filter(item => answers[item.key] !== undefined) : []
+
+  function persistAnswers(updater) {
+    setAnswers(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      try {
+        localStorage.setItem('suplematch_encuesta_answers', JSON.stringify(next))
+      } catch {
+        // Ignore browsers that block localStorage.
+      }
+      return next
+    })
+  }
 
   function select(value) {
-    setAnswers(prev => {
+    persistAnswers(prev => {
       const next = { ...prev, [q.key]: value }
       if (q.key === 'toma_suplementos' && value === 'no') {
         next.suplementos_actuales = []
@@ -365,7 +629,7 @@ export default function Encuesta({ goTo, showToast, setUserData }) {
   }
 
   function toggleMulti(value) {
-    setAnswers(prev => {
+    persistAnswers(prev => {
       const current = prev[q.key] || []
       const updated = normalizeMultiSelection(q, current, value)
       return { ...prev, [q.key]: updated }
@@ -373,105 +637,278 @@ export default function Encuesta({ goTo, showToast, setUserData }) {
   }
 
   function next() {
+    if (isSummary) {
+      if (!acceptedConsent) {
+        showToast('Acepta el consentimiento para continuar')
+        return
+      }
+      setUserData(buildPayload(answers))
+      try {
+        localStorage.removeItem('suplematch_encuesta_answers')
+      } catch {
+        // Ignore browsers that block localStorage.
+      }
+      goTo('loading')
+      return
+    }
+
     if (!answerIsValid(q, answers)) {
       showToast(q.type === 'multi' ? 'Selecciona al menos una opción' : 'Selecciona una opción')
       return
     }
-    if (step < total - 1) {
+    if (editingFromSummary) {
+      setEditingFromSummary(false)
+      setStep(summaryStep)
+    } else if (step < questions.length - 1) {
       setStep(s => s + 1)
     } else {
-      setUserData(buildPayload(answers))
-      goTo('loading')
+      setStep(summaryStep)
     }
   }
 
   function back() {
-    if (step > 0) setStep(s => s - 1)
-    else goTo('landing')
+    if (isSummary) setStep(Math.max(0, questions.length - 1))
+    else if (editingFromSummary) { setEditingFromSummary(false); setStep(summaryStep) }
+    else if (step > 0) setStep(s => s - 1)
+    else setConfirmExit(true)
   }
 
-  if (!q) return null
+  if (!q && !isSummary) return null
 
   return (
     <div className="screen" style={{ background: 'white', gap: 0, paddingTop: 50 }}>
+      {resumeModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24
+        }}>
+          <div style={{ background: 'white', borderRadius: 'var(--radius)', padding: 28, width: '100%', maxWidth: 340 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gray-800)', marginBottom: 10 }}>Tienes una evaluación guardada</div>
+            <div style={{ fontSize: 14, color: 'var(--gray-500)', marginBottom: 24, lineHeight: 1.5 }}>¿Quieres continuar donde lo dejaste o empezar de cero?</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => {
+                try {
+                  localStorage.removeItem('suplematch_encuesta_answers')
+                } catch {
+                  // Ignore browsers that block localStorage.
+                }
+                setAnswers({})
+                setResumeModal(false)
+              }}>Empezar de cero</button>
+              <button className="btn-primary" style={{ flex: 1 }} onClick={() => setResumeModal(false)}>Continuar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmExit && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 24
+        }}>
+          <div style={{ background: 'white', borderRadius: 'var(--radius)', padding: 28, width: '100%', maxWidth: 340 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gray-800)', marginBottom: 10 }}>¿Salir de la evaluación?</div>
+            <div style={{ fontSize: 14, color: 'var(--gray-500)', marginBottom: 24, lineHeight: 1.5 }}>Perderás tu progreso actual.</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setConfirmExit(false)}>Cancelar</button>
+              <button className="btn-primary" style={{ flex: 1 }} onClick={() => goTo('landing')}>Salir</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <button onClick={back} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray-400)', fontSize: 20 }}>←</button>
-          <span style={{ fontSize: 13, color: 'var(--gray-400)', fontWeight: 500 }}>Paso {step + 1} de {total}</span>
+          <span style={{ fontSize: 13, color: 'var(--gray-400)', fontWeight: 500 }}>
+            {isSummary ? 'Resumen final' : `Paso ${step + 1} de ${total}`}
+          </span>
         </div>
         <div style={{ height: 5, background: 'var(--gray-200)', borderRadius: 99, overflow: 'hidden' }}>
           <div style={{ height: '100%', background: 'var(--green)', borderRadius: 99, width: `${pct}%`, transition: 'width 0.4s ease' }} />
         </div>
       </div>
 
-      <h2 style={{ fontSize: 21, fontWeight: 700, color: 'var(--gray-800)', lineHeight: 1.25, marginBottom: 8 }}>{q.title}</h2>
-      <p style={{ fontSize: 13, color: 'var(--gray-600)', lineHeight: 1.45, marginBottom: 20 }}>{q.sub}</p>
+      <h2 style={{ fontSize: 21, fontWeight: 700, color: 'var(--gray-800)', lineHeight: 1.25, marginBottom: 8 }}>
+        {isSummary ? 'Revisa tus respuestas' : q.title}
+      </h2>
+      <p style={{ fontSize: 13, color: 'var(--gray-600)', lineHeight: 1.45, marginBottom: 20 }}>
+        {isSummary ? 'Confirma que el perfil sea correcto antes de generar recomendaciones.' : q.sub}
+      </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, overflowY: 'auto', paddingRight: 2 }}>
-        {q.options.map((opt) => {
-          const selected = q.type === 'single'
-            ? answers[q.key] === opt.value
-            : (answers[q.key] || []).includes(opt.value)
+      {isSummary ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, overflowY: 'auto', paddingRight: 2 }}>
+          {alerts.length > 0 && (
+            <div style={{
+              border: '1px solid #f4b66d',
+              background: '#fff7ed',
+              color: '#7c2d12',
+              borderRadius: 'var(--radius-sm)',
+              padding: '12px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}>
+              <strong style={{ fontSize: 13 }}>Alertas de seguridad</strong>
+              {alerts.map(alert => (
+                <span key={alert} style={{ fontSize: 12, lineHeight: 1.4 }}>{alert}</span>
+              ))}
+            </div>
+          )}
 
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => q.type === 'single' ? select(opt.value) : toggleMulti(opt.value)}
+          {summaryQuestions.map((item) => (
+            <div
+              key={item.key}
               style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 12,
-                width: '100%',
-                padding: '14px 16px',
-                border: `2px solid ${selected ? 'var(--green)' : 'var(--gray-200)'}`,
+                border: '1px solid var(--gray-200)',
                 borderRadius: 'var(--radius-sm)',
-                background: selected ? 'var(--green-light)' : 'white',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                textAlign: 'left',
+                padding: '12px 14px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 14,
+                alignItems: 'flex-start',
               }}
             >
-              <span style={{
-                width: 22,
-                height: 22,
-                borderRadius: q.type === 'single' ? '50%' : 5,
-                border: `2px solid ${selected ? 'var(--green)' : 'var(--gray-200)'}`,
-                background: selected ? 'var(--green)' : 'transparent',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                marginTop: 1,
-                color: 'white',
-                fontSize: 13,
-                fontWeight: 700,
-              }}>
-                {selected && (q.type === 'single' ? <span style={{ width: 8, height: 8, background: 'white', borderRadius: '50%' }} /> : '✓')}
-              </span>
-              <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                <span style={{ fontSize: 14, color: selected ? 'var(--green-dark)' : 'var(--gray-800)', fontWeight: 650, lineHeight: 1.25 }}>
-                  {opt.label}
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--gray-500)', fontWeight: 650, marginBottom: 4 }}>
+                  {item.title}
                 </span>
-                <span style={{ fontSize: 12, color: 'var(--gray-600)', lineHeight: 1.35 }}>
-                  {opt.detail}
+                <span style={{ display: 'block', fontSize: 14, color: 'var(--gray-800)', lineHeight: 1.35 }}>
+                  {answerLabel(item, answers)}
                 </span>
               </span>
-            </button>
-          )
-        })}
-      </div>
+              <button
+                type="button"
+                onClick={() => { setEditingFromSummary(true); setStep(Math.max(0, questions.findIndex(candidate => candidate.key === item.key))) }}
+                style={{
+                  border: '1px solid var(--gray-200)',
+                  background: 'white',
+                  borderRadius: 8,
+                  color: 'var(--green-dark)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: '7px 10px',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                Editar
+              </button>
+            </div>
+          ))}
 
-      {q.type === 'multi' && (
-        <p style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 8, textAlign: 'center', lineHeight: 1.35 }}>
-          {q.max ? `Puedes seleccionar hasta ${q.max}.` : 'Puedes seleccionar varias opciones.'}
-        </p>
+          <label style={{
+            border: `2px solid ${acceptedConsent ? 'var(--green)' : 'var(--gray-200)'}`,
+            background: acceptedConsent ? 'var(--green-light)' : 'white',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 14px',
+            display: 'flex',
+            gap: 10,
+            alignItems: 'flex-start',
+            cursor: 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              checked={acceptedConsent}
+              onChange={event => setAcceptedConsent(event.target.checked)}
+              style={{ marginTop: 3, accentColor: 'var(--green)', flexShrink: 0 }}
+            />
+            <span style={{ fontSize: 12, color: 'var(--gray-600)', lineHeight: 1.45 }}>
+              Acepto que SupleMatch entrega orientación informativa, no diagnóstico ni receta. Entiendo que debo revisar etiquetas, dosis e interacciones, y que si mi perfil requiere revisión médica se ocultarán productos comerciales.
+              {' '}
+              <button type="button" onClick={(event) => { event.preventDefault(); setLegalNote('terms') }} style={{ background: 'none', border: 'none', color: 'var(--green-dark)', fontWeight: 700, cursor: 'pointer', padding: 0 }}>Términos</button>
+              {' · '}
+              <button type="button" onClick={(event) => { event.preventDefault(); setLegalNote('privacy') }} style={{ background: 'none', border: 'none', color: 'var(--green-dark)', fontWeight: 700, cursor: 'pointer', padding: 0 }}>Privacidad</button>
+            </span>
+          </label>
+          {legalNote && (
+            <div style={{ border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', background: 'var(--gray-50)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+                <strong style={{ fontSize: 13, color: 'var(--gray-800)' }}>
+                  {legalNote === 'privacy' ? 'Privacidad' : 'Términos de uso'}
+                </strong>
+                <button type="button" onClick={() => setLegalNote(null)} style={{ background: 'none', border: 'none', color: 'var(--gray-400)', cursor: 'pointer' }}>Cerrar</button>
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--gray-600)', lineHeight: 1.45 }}>
+                {legalNote === 'privacy'
+                  ? 'Usamos tus respuestas para generar recomendaciones, guardar historial si inicias sesión y mejorar señales agregadas como feedback y reseñas. Evitamos texto libre sensible en esta encuesta.'
+                  : 'SupleMatch es informativo. No diagnostica ni prescribe. Verifica etiquetas, dosis, contraindicaciones e interacciones antes de tomar o comprar suplementos.'}
+              </p>
+            </div>
+          )}
+        </div>
+      ) : q.type === 'price_range' ? (
+        <PriceRangeQuestion q={q} answers={answers} onChange={(val) => persistAnswers(prev => ({ ...prev, [q.key]: val }))} />
+      ) : (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, overflowY: 'auto', paddingRight: 2 }}>
+            {q.options.filter(opt => {
+              if (opt.value === 'embarazo_lactancia' && answers.sexo === 'masculino') return false
+              return true
+            }).map((opt) => {
+              const selected = q.type === 'single'
+                ? answers[q.key] === opt.value
+                : (answers[q.key] || []).includes(opt.value)
+
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => q.type === 'single' ? select(opt.value) : toggleMulti(opt.value)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 12,
+                    width: '100%',
+                    padding: '14px 16px',
+                    border: `2px solid ${selected ? 'var(--green)' : 'var(--gray-200)'}`,
+                    borderRadius: 'var(--radius-sm)',
+                    background: selected ? 'var(--green-light)' : 'white',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: q.type === 'single' ? '50%' : 5,
+                    border: `2px solid ${selected ? 'var(--green)' : 'var(--gray-200)'}`,
+                    background: selected ? 'var(--green)' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    marginTop: 1,
+                    color: 'white',
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}>
+                    {selected && (q.type === 'single' ? <span style={{ width: 8, height: 8, background: 'white', borderRadius: '50%' }} /> : '✓')}
+                  </span>
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+                    <span style={{ fontSize: 14, color: selected ? 'var(--green-dark)' : 'var(--gray-800)', fontWeight: 650, lineHeight: 1.25 }}>
+                      {opt.label}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--gray-600)', lineHeight: 1.35 }}>
+                      {opt.detail}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {q.type === 'multi' && (
+            <p style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 8, textAlign: 'center', lineHeight: 1.35 }}>
+              {q.max ? `Puedes seleccionar hasta ${q.max}.` : 'Puedes seleccionar varias opciones.'}
+            </p>
+          )}
+        </>
       )}
 
       <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>
         <button className="btn-secondary" onClick={back} style={{ opacity: step === 0 ? 0.3 : 1 }}>← Atrás</button>
         <button className="btn-primary" onClick={next} style={{ flex: 2 }}>
-          {step === total - 1 ? 'Ver resultados →' : 'Siguiente →'}
+          {isSummary ? 'Enviar encuesta →' : step === questions.length - 1 ? 'Revisar respuestas →' : 'Siguiente →'}
         </button>
       </div>
     </div>
