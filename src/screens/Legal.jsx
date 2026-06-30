@@ -17,11 +17,11 @@ const CONTENT = {
     intro: 'SupleMatch es una herramienta informativa para comparar suplementos y señales de perfil. No diagnostica, no prescribe, no receta y no reemplaza la evaluación de un médico, nutricionista o químico farmacéutico.',
     sections: [
       ['Uso permitido', 'Puedes usar la encuesta y, opcionalmente, exámenes para recibir orientación general. Debes entregar información verdadera y revisar siempre etiquetas, dosis, contraindicaciones e interacciones.'],
-      ['Perfiles críticos', 'Si declaras minoría de edad, embarazo/lactancia, enfermedad renal o hepática, anticoagulantes, medicación crónica o si un examen muestra señales críticas, la app oculta compra y productos comerciales.'],
+      ['Perfiles críticos', 'Si declaras minoría de edad, embarazo/lactancia, enfermedad renal o hepática, o si un examen muestra señales críticas, la app oculta compra y productos comerciales. Anticoagulantes, problema tiroideo y medicación crónica activan alertas y filtros por ingrediente.'],
       ['Exámenes de laboratorio', 'Los biomarcadores se usan como señales para conversación con un profesional. Un valor fuera de rango no equivale a diagnóstico y puede depender de unidad, método, laboratorio y contexto clínico.'],
       ['Productos comerciales', 'El catálogo muestra productos reales, precios, stock, farmacias y registro sanitario cuando está disponible. La información puede cambiar y debe verificarse antes de comprar.'],
       ['Registro sanitario', 'La existencia de un registro sanitario informado no significa que el producto sea adecuado para tu caso. El uso seguro depende de tu perfil, dosis, interacciones y validación profesional.'],
-      ['Reviews', 'Las reseñas son de suplementos unitarios, no de packs completos. Pueden moderarse si contienen spam, datos personales, claims médicos o dosis inseguras.'],
+      ['Reviews', 'Las reseñas son de productos comerciales específicos, no de componentes ni packs completos. Pueden moderarse si contienen spam, datos personales, claims médicos o dosis inseguras.'],
       ['Limitación del prototipo', 'Este proyecto universitario busca demostrar viabilidad de producto. Antes de uso público se requiere revisión legal, clínica, farmacéutica, de seguridad y de protección de datos.'],
     ],
   },

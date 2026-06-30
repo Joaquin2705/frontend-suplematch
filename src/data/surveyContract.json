@@ -1,0 +1,428 @@
+{
+  "enums": {
+    "alcohol": [
+      "nunca",
+      "raro",
+      "ocasional",
+      "frecuente"
+    ],
+    "caffeine_after_3pm": [
+      "no",
+      "a_veces",
+      "si"
+    ],
+    "caffeine_sources": [
+      "cafe",
+      "te",
+      "energizante",
+      "preworkout",
+      "gaseosa_cola",
+      "chocolate",
+      "otro"
+    ],
+    "condiciones_seguridad": [
+      "ninguna",
+      "embarazo_lactancia",
+      "enfermedad_renal",
+      "enfermedad_hepatica",
+      "problema_tiroideo",
+      "anticoagulantes",
+      "medicacion_cronica"
+    ],
+    "dieta": [
+      "poco_variada",
+      "regular",
+      "bastante_variada",
+      "muy_balanceada"
+    ],
+    "digestive_discomfort": [
+      "nunca",
+      "leve",
+      "moderado",
+      "frecuente",
+      "severo"
+    ],
+    "edad_rango": [
+      "menos_18",
+      "18_30",
+      "31_50",
+      "mas_50"
+    ],
+    "estres": [
+      "bajo",
+      "moderado",
+      "alto",
+      "muy_alto"
+    ],
+    "exposicion_solar": [
+      "menos_15min",
+      "15_30min",
+      "30_60min",
+      "mas_1h"
+    ],
+    "fatiga": [
+      "casi_nunca",
+      "a_veces",
+      "a_menudo",
+      "siempre"
+    ],
+    "frecuencia_ejercicio": [
+      "casi_nunca",
+      "1_2_semana",
+      "3_4_semana",
+      "diario"
+    ],
+    "frecuencia_enfermedad": [
+      "casi_nunca",
+      "1_2_anio",
+      "3_4_anio",
+      "muy_seguido"
+    ],
+    "horas_sueno": [
+      "menos_5h",
+      "5_7h",
+      "7_9h",
+      "mas_9h"
+    ],
+    "iron_anemia_history": [
+      "no",
+      "si",
+      "no_se"
+    ],
+    "night_wakeups": [
+      "nunca",
+      "1_2",
+      "3_o_mas"
+    ],
+    "objetivo_principal": [
+      "energia",
+      "inmunidad",
+      "suenio_estres",
+      "rendimiento",
+      "salud_osea",
+      "cabello_piel_unas",
+      "salud_visual",
+      "digestion",
+      "hidratacion",
+      "salud_cardiovascular",
+      "salud_cognitiva",
+      "nutricion_general"
+    ],
+    "objetivos": [
+      "energia",
+      "inmunidad",
+      "suenio",
+      "rendimiento",
+      "salud_osea",
+      "cabello_piel_unas",
+      "estres",
+      "salud_visual",
+      "digestion",
+      "hidratacion",
+      "salud_cardiovascular",
+      "salud_cognitiva"
+    ],
+    "peso_rango": [
+      "menos_50",
+      "50_65",
+      "66_80",
+      "mas_80"
+    ],
+    "presupuesto": [
+      "bajo",
+      "medio",
+      "alto",
+      "sin_preferencia"
+    ],
+    "recovery_difficulty": [
+      "no",
+      "leve",
+      "moderada",
+      "alta"
+    ],
+    "restricciones": [
+      "sin_restricciones",
+      "alergia_lacteos",
+      "alergia_soya",
+      "alergia_pescado_mariscos",
+      "evita_gelatina",
+      "sin_gluten"
+    ],
+    "sexo": [
+      "femenino",
+      "masculino"
+    ],
+    "sintomas": [
+      "ninguno",
+      "dolor_muscular",
+      "dolor_articular",
+      "niebla_mental",
+      "caida_cabello",
+      "piel_seca",
+      "unas_quebradizas",
+      "calambres"
+    ],
+    "sleep_quality": [
+      "buena",
+      "regular",
+      "mala"
+    ],
+    "suplementos_actuales": [
+      "vitamina_d",
+      "calcio",
+      "magnesio",
+      "zinc",
+      "vitamina_c",
+      "hierro",
+      "omega_3",
+      "multivitaminico",
+      "proteina",
+      "otro"
+    ],
+    "suplementos_frecuencia": [
+      "diario",
+      "varias_semana",
+      "ocasional",
+      "no_se"
+    ],
+    "talla_rango": [
+      "menos_155",
+      "155_165",
+      "166_175",
+      "mas_175"
+    ],
+    "tipo_dieta": [
+      "omnivoro",
+      "pescetariano",
+      "vegetariano",
+      "vegano"
+    ],
+    "toma_suplementos": [
+      "no",
+      "si"
+    ],
+    "training_type": [
+      "no_aplica",
+      "fuerza",
+      "cardio",
+      "mixto",
+      "movilidad"
+    ]
+  },
+  "rules": {
+    "exact_fields": {
+      "age_years": {
+        "derived_field": "edad_rango",
+        "max": 120,
+        "min": 1
+      },
+      "bmi": {
+        "derived_from": [
+          "weight_kg",
+          "height_cm"
+        ]
+      },
+      "height_unit": {
+        "ui_note": "ft_in se convierte a cm antes de enviarse al backend.",
+        "ui_values": [
+          "cm",
+          "ft_in"
+        ],
+        "values": [
+          "cm"
+        ]
+      },
+      "height_value": {
+        "derived_fields": [
+          "height_cm",
+          "talla_rango"
+        ],
+        "max": 10000,
+        "min": 0,
+        "requires": "height_unit"
+      },
+      "weight_unit": {
+        "values": [
+          "kg",
+          "lb"
+        ]
+      },
+      "weight_value": {
+        "derived_fields": [
+          "weight_kg",
+          "peso_rango"
+        ],
+        "max": 500000,
+        "min": 0,
+        "requires": "weight_unit"
+      }
+    },
+    "exclusive_values": {
+      "condiciones_seguridad": "ninguna",
+      "restricciones": "sin_restricciones"
+    },
+    "hard_safety_values": {
+      "condiciones_seguridad": [
+        "embarazo_lactancia",
+        "enfermedad_renal",
+        "enfermedad_hepatica"
+      ],
+      "edad_rango": [
+        "menos_18"
+      ]
+    },
+    "incompatible_values": [
+      {
+        "field": "condiciones_seguridad",
+        "value": "embarazo_lactancia",
+        "when": {
+          "sexo": "masculino"
+        }
+      },
+      {
+        "field": "training_type",
+        "value_not_in": [
+          "no_aplica",
+          null
+        ],
+        "when": {
+          "exercise_days_week": 0
+        }
+      }
+    ],
+    "max_objetivos": 4,
+    "optimized_fields": {
+      "alcohol_drinks_week": {
+        "max": 80,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "caffeine_servings_day": {
+        "max": 20,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "dairy_servings_day": {
+        "max": 10,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "dairy_servings_week": {
+        "derived_field": "dairy_servings_day",
+        "max": 21,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "eggs_servings_week": {
+        "max": 21,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "exercise_days_week": {
+        "max": 7,
+        "min": 0
+      },
+      "fatigue_days_week": {
+        "max": 7,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "fermented_foods_week": {
+        "max": 21,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "fish_servings_week": {
+        "max": 21,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "fruit_veg_servings_day": {
+        "max": 20,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "headache_days_week": {
+        "max": 7,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "heavy_sweat_days_week": {
+        "max": 7,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "iron_anemia_history": {
+        "values": [
+          "no",
+          "si",
+          "no_se"
+        ]
+      },
+      "legume_servings_week": {
+        "max": 21,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "meat_servings_week": {
+        "max": 21,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "no_meat": {
+        "type": "boolean"
+      },
+      "poultry_servings_week": {
+        "max": 21,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "preferred_pack_size": {
+        "default": 3,
+        "values": [
+          3,
+          5
+        ]
+      },
+      "protein_g_day_estimate": {
+        "max": 300,
+        "min": 0,
+        "missing_means": "unknown",
+        "ui_note": "Opcional; la app puede estimar desde alimentos semanales."
+      },
+      "red_meat_servings_week": {
+        "max": 21,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "screen_hours_day": {
+        "max": 24,
+        "min": 0,
+        "missing_means": "unknown"
+      },
+      "suplementos_dosis_conocida": {
+        "type": "boolean"
+      },
+      "water_intake_l_day": {
+        "max": 10,
+        "min": 0,
+        "missing_means": "unknown"
+      }
+    },
+    "response_sections": {
+      "condition_results": "Riesgos nutricionales o biomedicos estimados; no son diagnosticos.",
+      "safety_flags": "Alertas de seguridad que deben mostrarse antes de productos.",
+      "wellness_priorities": "Prioridades blandas por encuesta, no evaluables con NHANES."
+    },
+    "targeted_safety_values": {
+      "condiciones_seguridad": [
+        "problema_tiroideo",
+        "anticoagulantes",
+        "medicacion_cronica"
+      ]
+    },
+    "toma_suplementos_no_requires_empty_suplementos_actuales": true,
+    "toma_suplementos_si_requires_suplementos_actuales": true
+  },
+  "version": "2026-06-25.1"
+}

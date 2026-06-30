@@ -1,3 +1,5 @@
+import { getRefreshToken, saveSession, clearSession } from './authStorage'
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
 export async function login(payload) {
@@ -22,7 +24,7 @@ export async function getMe(token) {
   })
 }
 
-export async function refreshSession(refreshToken = localStorage.getItem('suplematch_refresh_token')) {
+export async function refreshSession(refreshToken = getRefreshToken()) {
   if (!refreshToken) throw new Error('Refresh token no disponible')
   return request('/api/v1/auth/refresh', {
     method: 'POST',
@@ -31,7 +33,7 @@ export async function refreshSession(refreshToken = localStorage.getItem('suplem
   })
 }
 
-export async function logout(refreshToken = localStorage.getItem('suplematch_refresh_token')) {
+export async function logout(refreshToken = getRefreshToken()) {
   if (!refreshToken) return { message: 'Sesión cerrada.' }
   return request('/api/v1/auth/logout', {
     method: 'POST',
@@ -44,22 +46,28 @@ export async function logoutAll(token) {
   return request('/api/v1/auth/logout-all', {
     method: 'POST',
     headers: authHeaders(token),
-  })
-}
-
-export async function forgotPassword(payload) {
-  return request('/api/v1/auth/forgot-password', {
-    method: 'POST',
-    body: JSON.stringify(payload),
     allowRefresh: false,
   })
 }
 
-export async function resetPassword(payload) {
-  return request('/api/v1/auth/reset-password', {
-    method: 'POST',
+export async function getUserPersonal(token) {
+  return request('/api/v1/users/me/personal', {
+    headers: authHeaders(token),
+  })
+}
+
+export async function updateUserPersonal(payload, token) {
+  return request('/api/v1/users/me/personal', {
+    method: 'PUT',
     body: JSON.stringify(payload),
-    allowRefresh: false,
+    headers: authHeaders(token),
+  })
+}
+
+export async function deleteUserPersonal(token) {
+  return request('/api/v1/users/me/personal', {
+    method: 'DELETE',
+    headers: authHeaders(token),
   })
 }
 
@@ -76,6 +84,7 @@ export async function postRecommendation(payload, token = null) {
     method: 'POST',
     body: JSON.stringify(payload),
     headers: authHeaders(token),
+    timeoutMs: false, // Loading.jsx handles timeout via Promise.race
   })
 }
 
@@ -94,13 +103,13 @@ export async function getHistory(token) {
 }
 
 export async function getPendingReviews(token) {
-  return request('/api/v1/admin/reviews/supplements?review_status=pending', {
+  return request('/api/v1/admin/reviews/products?review_status=pending', {
     headers: authHeaders(token),
   })
 }
 
 export async function moderateReview(reviewId, status, token) {
-  return request(`/api/v1/admin/reviews/supplements/${reviewId}`, {
+  return request(`/api/v1/admin/reviews/products/${reviewId}`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
     headers: authHeaders(token),
@@ -116,6 +125,58 @@ export async function getAdminProducts(token, status = '') {
 
 export async function getCatalogQuality(token) {
   return request('/api/v1/admin/catalog/quality', {
+    headers: authHeaders(token),
+  })
+}
+
+export async function getCatalogCandidates(token, status = '') {
+  const query = status ? `?status_filter=${encodeURIComponent(status)}` : ''
+  return request(`/api/v1/admin/catalog/candidates${query}`, {
+    headers: authHeaders(token),
+  })
+}
+
+export async function updateCatalogCandidate(candidateId, payload, token) {
+  return request(`/api/v1/admin/catalog/candidates/${candidateId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+    headers: authHeaders(token),
+  })
+}
+
+export async function promoteCatalogCandidate(candidateId, payload, token) {
+  return request(`/api/v1/admin/catalog/candidates/${candidateId}/promote`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: authHeaders(token),
+  })
+}
+
+export async function getCatalogJobStatus(token) {
+  return request('/api/v1/admin/catalog/jobs/status', {
+    headers: authHeaders(token),
+  })
+}
+
+export async function runCatalogJob(payload, token) {
+  return request('/api/v1/admin/catalog/jobs/run', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: authHeaders(token),
+  })
+}
+
+export async function cancelCatalogJob(token, jobId = null) {
+  const path = jobId ? `/api/v1/admin/catalog/jobs/${jobId}/cancel` : '/api/v1/admin/catalog/jobs/cancel'
+  return request(path, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+}
+
+export async function approveCatalogImport(jobId, token) {
+  return request(`/api/v1/admin/catalog/jobs/${jobId}/approve-import`, {
+    method: 'POST',
     headers: authHeaders(token),
   })
 }
@@ -165,16 +226,26 @@ export async function updateAdminProduct(productId, payload, token) {
   })
 }
 
-export async function postSupplementReview(payload, token) {
-  return request('/api/v1/reviews/supplements', {
+export async function postProductReview(payload, token) {
+  return request('/api/v1/reviews/products', {
     method: 'POST',
     body: JSON.stringify(payload),
     headers: authHeaders(token),
   })
 }
 
+export const postSupplementReview = postProductReview
+
 export async function analyzeLabText(payload, token = null) {
   return request('/api/v1/labs/text', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: authHeaders(token),
+  })
+}
+
+export async function analyzeManualLabs(payload, token = null) {
+  return request('/api/v1/labs/manual', {
     method: 'POST',
     body: JSON.stringify(payload),
     headers: authHeaders(token),
@@ -190,6 +261,7 @@ export async function uploadLabReport(file, { consentHealthData, persist = true 
     method: 'POST',
     body: formData,
     headers: authHeaders(token),
+    timeoutMs: 60_000,
   })
 }
 
@@ -219,25 +291,54 @@ export async function deleteAllLabReports(token) {
   })
 }
 
+export async function exportHealthData(token) {
+  return request('/api/v1/users/me/health-data/export', {
+    headers: authHeaders(token),
+  })
+}
+
+export async function deleteHealthData(token) {
+  return request('/api/v1/users/me/health-data', {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
 function authHeaders(token) {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-async function request(path, options = {}) {
+async function request(path, { timeoutMs = 20_000, allowRefresh, ...options } = {}) {
   const isFormData = options.body instanceof FormData
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      ...options.headers,
-    },
-  })
 
-  if (response.status === 401 && options.allowRefresh !== false) {
+  let signal
+  if (timeoutMs) {
+    try { signal = AbortSignal.timeout(timeoutMs) } catch { /* Safari < 16.4 */ }
+  }
+
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      signal,
+      headers: {
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...options.headers,
+      },
+    })
+  } catch (error) {
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+      throw new Error('La solicitud tardó demasiado. Verifica tu conexión e intenta de nuevo.')
+    }
+    throw error
+  }
+
+  if (response.status === 401 && allowRefresh !== false) {
     const refreshed = await tryRefreshSession()
     if (refreshed) {
       return request(path, {
         ...options,
+        timeoutMs,
         headers: {
           ...options.headers,
           Authorization: `Bearer ${refreshed.access_token}`,
@@ -247,7 +348,11 @@ async function request(path, options = {}) {
     }
   }
 
-  const data = await response.json().catch(() => ({}))
+  let data = {}
+  const text = await response.text().catch(() => '')
+  try { data = JSON.parse(text) } catch {
+    if (!response.ok) throw new Error(text.slice(0, 200) || 'Error al conectar con SupleMatch')
+  }
 
   if (!response.ok) {
     throw new Error(data.detail ?? 'Error al conectar con SupleMatch')
@@ -257,19 +362,15 @@ async function request(path, options = {}) {
 }
 
 async function tryRefreshSession() {
-  const refreshToken = localStorage.getItem('suplematch_refresh_token')
+  const refreshToken = getRefreshToken()
   if (!refreshToken) return null
   try {
     const data = await refreshSession(refreshToken)
-    localStorage.setItem('suplematch_token', data.access_token)
-    localStorage.setItem('suplematch_refresh_token', data.refresh_token)
-    localStorage.setItem('suplematch_user', JSON.stringify(data.user))
+    saveSession(data)
     window.dispatchEvent(new CustomEvent('suplematch-auth-refreshed', { detail: data }))
     return data
   } catch {
-    localStorage.removeItem('suplematch_token')
-    localStorage.removeItem('suplematch_refresh_token')
-    localStorage.removeItem('suplematch_user')
+    clearSession()
     window.dispatchEvent(new CustomEvent('suplematch-auth-expired'))
     return null
   }

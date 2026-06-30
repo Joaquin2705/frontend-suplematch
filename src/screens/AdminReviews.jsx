@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getPendingReviews, moderateReview } from '../api/suplematch'
+import { useAuth } from '../context/AuthContext'
 
-export default function AdminReviews({ goTo, showToast, authToken, authUser }) {
+export default function AdminReviews({ goTo, showToast }) {
+  const { authToken, authUser } = useAuth()
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(Boolean(authToken))
   const [search, setSearch] = useState('')
@@ -80,7 +82,7 @@ export default function AdminReviews({ goTo, showToast, authToken, authUser }) {
       <input
         value={search}
         onChange={e => setSearch(e.target.value)}
-        placeholder="Buscar por producto, componente o comentario..."
+        placeholder="Buscar por producto, farmacia, componente o comentario..."
         style={{ border: '1.5px solid var(--gray-200)', borderRadius: 10, padding: '10px 12px', fontSize: 13, background: 'white' }}
       />
 
@@ -94,7 +96,7 @@ export default function AdminReviews({ goTo, showToast, authToken, authUser }) {
             {review.product_name || 'Producto'} · {review.pharmacy || 'Farmacia'}
           </div>
           <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 8 }}>
-            Rating {review.rating}/5 · {review.component_name || 'Componente no especificado'}
+            Producto {review.rating}/5 · componente asociado: {review.component_name || 'no especificado'}
           </div>
           <p style={{ fontSize: 13, color: 'var(--gray-700)', lineHeight: 1.4, marginBottom: 10 }}>
             {review.comment || 'Sin comentario'}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createSafetyRule, getSafetyRules, updateSafetyRule } from '../api/suplematch'
+import { useAuth } from '../context/AuthContext'
 
 const EMPTY_RULE = {
   name: '',
@@ -13,7 +14,8 @@ const EMPTY_RULE = {
   source: 'admin',
 }
 
-export default function AdminSafetyRules({ goTo, showToast, authToken, authUser }) {
+export default function AdminSafetyRules({ goTo, showToast }) {
+  const { authToken, authUser } = useAuth()
   const [rules, setRules] = useState([])
   const [form, setForm] = useState(EMPTY_RULE)
   const [loading, setLoading] = useState(Boolean(authToken))
@@ -42,6 +44,10 @@ export default function AdminSafetyRules({ goTo, showToast, authToken, authUser 
 
   async function submit(event) {
     event.preventDefault()
+    if (!form.name.trim() || !form.ingredient_pattern.trim()) {
+      showToast('Nombre y patrón de ingrediente son requeridos')
+      return
+    }
     try {
       await createSafetyRule({
         ...form,
