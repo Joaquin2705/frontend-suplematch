@@ -1,90 +1,76 @@
 # SupleMatch Frontend
 
-Aplicación web mobile-first para recomendación personalizada de suplementos. Construida con React + Vite.
+## 1. Tecnologias utilizadas
 
-## Stack
+Tecnologias principales:
 
-- React 18 · Vite · CSS variables
-- Sin librerías UI externas (componentes propios)
+- React 19 para construccion de interfaces.
+- Vite 8 como servidor de desarrollo y herramienta de build.
+- JavaScript y JSX como base de componentes.
+- CSS global con variables, estilos propios y componentes visuales reutilizables.
+- npm como gestor de paquetes.
+- ESLint 10 para validacion de estilo y errores estaticos.
+- Playwright para pruebas end-to-end.
+- Nginx en Docker para servir el build estatico en despliegue.
 
-## Setup
+## 2. Despliegue
 
-### Requisitos
+### Opcion A: ejecucion local con Vite
 
-- Node.js >= 18
-
-### Instalar dependencias
+Desde la raiz del repositorio frontend:
 
 ```bash
 npm install
-```
-
-### Variables de entorno
-
-```bash
 cp .env.example .env
 ```
 
-Configurar la URL del backend:
+Configurar la URL del backend en `.env`:
 
 ```env
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-Si se deja vacío, las llamadas van a `/api/v1/...` (relativo — útil con proxy o mismo origen).
+Si `VITE_API_BASE_URL` queda vacio, la aplicacion usa rutas relativas `/api/v1/...`, util cuando frontend y backend comparten origen o proxy.
 
-### Correr en desarrollo
+Levantar la aplicacion:
 
 ```bash
 npm run dev
 ```
 
-La app estará en `http://localhost:5173`.
+Abrir en navegador:
 
-### Build para producción
+```
+http://localhost:5173
+```
+
+Validar antes de publicar:
 
 ```bash
+npm run lint
 npm run build
 ```
 
----
+Nota: Vite 8 requiere Node 20.19+ o 22.12+. Verificar version activa con `node --version`.
 
-## Flujo de la aplicación
+### Opcion B: ejecucion con Docker Compose
+
+Desde la raiz del proyecto general:
+
+```bash
+cp -n .env.staging.example .env.staging
+docker compose -p proyecto --env-file .env.staging -f infra/docker-compose.staging.yml up -d --build frontend
+```
+
+Abrir la aplicacion:
 
 ```
-Landing → Encuesta → Loading → Condiciones → Recomendaciones → Precios → Feedback
+http://localhost:18080
 ```
 
-| Pantalla | Descripción |
-|---|---|
-| `Landing` | Presentación de SupleMatch |
-| `Encuesta` | 9 preguntas sobre hábitos y síntomas |
-| `Loading` | Llama al backend `/api/v1/recommend` y normaliza la respuesta |
-| `Condiciones` | Muestra condiciones detectadas con probabilidad real y drivers SHAP |
-| `Recomendaciones` | Pack de suplementos con razones, precios y sinergias/alertas del grafo |
-| `Precios` | Productos disponibles en farmacias peruanas con RS DIGEMID |
-| `Feedback` | Calificación que mejora las recomendaciones futuras |
+Validar contenedor y respuesta HTTP:
 
----
-
-## Explicabilidad en la UI
-
-La pantalla **Condiciones** muestra, para cada condición detectada:
-
-- Barra de probabilidad real (del modelo Random Forest del backend)
-- Sección **"¿Por qué?"** con los factores del usuario que más influyeron:
-  - Basado en SHAP values si el backend tiene `shap` instalado
-  - Basado en reglas de dominio como fallback
-  - Badges de impacto: 🔴 Alto · 🟡 Medio · 🟢 Bajo
-
----
-
-## Conexión con el backend
-
-Toda la comunicación ocurre en `Loading.jsx` al momento del análisis.
-
-Si el backend no está disponible, la app cae al `MOCK_RESULT` con datos de ejemplo para poder navegar el flujo completo en modo demo.
-
-El backend debe estar corriendo en el puerto configurado en `VITE_API_BASE_URL` (por defecto `http://localhost:8000`).
-
-Ver [Suplematch-Backend](../Suplematch-Backend/README.md) para instrucciones de setup del servidor.
+```bash
+docker compose -p proyecto --env-file .env.staging -f infra/docker-compose.staging.yml ps
+curl http://localhost:18080/
+```
