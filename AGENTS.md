@@ -11,7 +11,7 @@ Límites que sí requieren confirmación explícita del usuario:
 - Modificar `vite.config.js`, `Dockerfile`, `nginx.conf` o archivos de Docker.
 - Eliminar archivos o pantallas completas.
 - Cambiar contratos de API (`src/api/suplematch.js`) más allá de ajustes menores de presentación.
-- Modificar `src/contracts/surveyContract.json`.
+- Modificar `src/data/surveyContract.json` a mano: se regenera desde el backend con `python scripts/ops/exportar_contrato_encuesta.py` (versión actual `2026-10-24.1`).
 
 ---
 
@@ -511,6 +511,23 @@ async function fetchRecs() {
 }
 ```
 
+### Telemetría del recomendador (`src/api/events.js`)
+
+Eventos de interacción que alimentan `recommendation_events` en el backend (`POST /api/v1/feedback/events`):
+
+| Evento | Dónde se emite |
+|---|---|
+| `impression` | `Recomendaciones.jsx` al montar: una por recomendación visible con su rank (deduplicadas en memoria) |
+| `click` | "Ver más información" de un componente |
+| `product_click` | Abrir la vista previa de un producto |
+| `purchase_intent` | "Ver en tienda" (link saliente a la farmacia) |
+| `dismiss` | Salir sin feedback / "Omitir" en Feedback |
+| `still_taking_30d` / `stopped` | `Historial.jsx` (sesiones con ≥14 días) y la pregunta de 30 días en `Feedback.jsx` |
+
+Reglas: siempre vía `trackEvent` / `trackImpressions`, nunca `fetch` directo; fire-and-forget (nunca toasts ni `await` que bloquee la UI); no se envía si `recommendation_id` empieza por `rec_frontend` (fixtures/demo). El E2E no mockea este endpoint: los fallos se descartan en silencio por diseño.
+
+Los scores por condición llegan como `risk_index` + `score_semantics` (`indice_riesgo_reglas`); `probability` es alias obsoleto. No mostrar la palabra "probabilidad" ni porcentajes para condiciones; los porcentajes solo aplican a `lab_risk_estimates` (modelo con datos reales).
+
 ### Estado compartido clave
 
 | Prop / estado | Dónde vive | Qué contiene |
@@ -587,3 +604,14 @@ Antes de reportar el trabajo como terminado:
 - [ ] El disclaimer orientativo aparece en pantallas de recomendaciones.
 - [ ] La navegación de vuelta (`prevScreen ?? 'fallback'`) está wired correctamente.
 - [ ] Los estados de loading, error y vacío están cubiertos (no crashear con `undefined`).
+
+## Encuesta (contrato 2026-10-24.1)
+
+- Un campo de `field_group` puede llevar `when: answers => ...`; si es falso, no se muestra, no se valida y no se envía (`fieldIsVisible` en `EncuestaUtils.js`).
+- Un campo con `lab: { code, unit }` (paso "Valores clave") no va al payload como campo suelto: se agrega a `lab_results`, sin pisar lo que vino del examen subido.
+- `SCALE_PRESETS.weekly_food` debe coincidir con `rules.food_block.scale_values` del contrato. Cada escala tiene "No sé" (valor vacío = faltante, nunca 0).
+- `objetivos` solo ordena resultados: no agregar lógica que los use para decidir riesgos.
+- El E2E recorre la encuesta por título de paso: un paso nuevo obligatorio necesita su regla en `answerSurvey`; los opcionales se saltan solos. El test "preguntas nuevas..." responde los pasos opcionales y verifica el payload.
+- `STEP_GATES` (en `EncuestaUtils.js`) decide qué pasos opcionales se muestran; mantenerlo alineado con `rules.conditional_steps` del contrato.
+- Embudo: `src/api/surveyEvents.js` (`trackSurveyStep`) envía `view` / `complete` / `submit` por paso a `POST /api/v1/survey/events`. Fire-and-forget, nunca respuestas, una sesión por encuesta (sessionStorage).
+
