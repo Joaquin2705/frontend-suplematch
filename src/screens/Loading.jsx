@@ -36,12 +36,18 @@ function normalizeResult(result) {
         code: condition.code,
         nombre: condition.display_name ?? formatCondition(condition.code),
         nivel: condition.level ?? (index === 0 ? 'Detectado' : 'Relacionado'),
-        probabilidad: condition.probability ?? (index === 0 ? 0.82 : 0.55),
+        // `risk_index` = índice de riesgo basado en reglas (no probabilidad clínica); `probability` es el alias obsoleto.
+        probabilidad: condition.risk_index ?? condition.probability ?? (index === 0 ? 0.82 : 0.55),
+        score_semantics: condition.score_semantics ?? 'indice_riesgo_reglas',
         emoji: iconToEmoji(condition.icon_key, index),
         drivers: expl?.drivers ?? [],
       }
     }),
     explainability: result.explainability ?? [],
+    condition_score_semantics: result.condition_score_semantics ?? 'indice_riesgo_reglas',
+    condition_score_label: result.condition_score_label ?? 'Índice de riesgo basado en reglas',
+    // Modelo real (NHANES): probabilidad calibrada de laboratorio fuera de rango. Sirve para sugerir un examen.
+    lab_risk_estimates: normalizeLabRiskEstimates(result.lab_risk_estimates ?? []),
     condition_results: conditionResults,
     wellness_priorities: wellnessPriorities,
     safety_flags: safetyFlags,
@@ -81,6 +87,22 @@ function normalizeResult(result) {
   }
 }
 
+function normalizeLabRiskEstimates(items) {
+  if (!Array.isArray(items)) return []
+  return items
+    .filter(item => item && typeof item.probability === 'number')
+    .map(item => ({
+      target: item.target,
+      label: item.label ?? item.target,
+      condition: item.condition ?? null,
+      probability: item.probability,
+      threshold: item.threshold ?? null,
+      positive: Boolean(item.positive),
+      score_semantics: item.score_semantics ?? 'probabilidad_calibrada_real',
+      note: item.note ?? null,
+    }))
+}
+
 function normalizeCategorizedResults(items) {
   if (!Array.isArray(items)) return []
   return items.map((item, index) => ({
@@ -88,7 +110,9 @@ function normalizeCategorizedResults(items) {
     nombre: item.display_name ?? formatCondition(item.code),
     kind: item.kind ?? 'context',
     nivel: item.level ?? item.confidence_label ?? 'Contexto',
-    probabilidad: item.probability ?? 0,
+    probabilidad: item.risk_index ?? item.probability ?? 0,
+    score_semantics: item.score_semantics ?? 'indice_riesgo_reglas',
+    score_label: item.score_label ?? 'Índice de riesgo basado en reglas',
     emoji: iconForKind(item.kind, item.code, index),
     evidence_group: item.evidence_group,
     confidence_label: item.confidence_label,

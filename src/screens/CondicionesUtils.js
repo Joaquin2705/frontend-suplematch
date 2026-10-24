@@ -1,6 +1,6 @@
 export const FALLBACK = [
-  { code: 'DEFICIT_VIT_D', emoji: '☀️', nombre: 'Déficit de Vitamina D', nivel: 'Alta prob.',  probabilidad: 0.82, drivers: [] },
-  { code: 'BAJA_INMUNIDAD', emoji: '🛡️', nombre: 'Baja Inmunidad',        nivel: 'Media prob.', probabilidad: 0.55, drivers: [] },
+  { code: 'DEFICIT_VIT_D', emoji: '☀️', nombre: 'Déficit de Vitamina D', nivel: 'Prioridad alta',  probabilidad: 0.82, drivers: [] },
+  { code: 'BAJA_INMUNIDAD', emoji: '🛡️', nombre: 'Baja Inmunidad',        nivel: 'Prioridad media', probabilidad: 0.55, drivers: [] },
   { code: 'SALUDABLE',     emoji: '✅', nombre: 'Base saludable',         nivel: 'Confirmado',  probabilidad: 0.28, drivers: [] },
 ]
 
@@ -69,10 +69,19 @@ export function formatEvidence(value) {
   return labels[value] ?? capitalizeLabel(value)
 }
 
+// El valor es un índice de riesgo basado en reglas (0-1), no una probabilidad clínica. Nunca mostrarlo como "%".
 export function probabilityLabel(probability = 0) {
   if (probability >= 0.65) return 'Prioridad alta'
   if (probability >= 0.40) return 'Prioridad media'
   return 'Contexto'
+}
+
+export const RULE_SCORE_CAPTION = 'Índice de riesgo basado en reglas · no es una probabilidad ni un diagnóstico'
+
+export function labRiskPercent(probability) {
+  const value = Number(probability)
+  if (!Number.isFinite(value)) return null
+  return `${Math.round(value * 100)} %`
 }
 
 export function hasObservedLabEvidence(condition) {

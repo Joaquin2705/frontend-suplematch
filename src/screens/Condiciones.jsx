@@ -4,6 +4,7 @@ import {
   associatedSignalsFor, condStyle, formatEvidence, probabilityLabel,
   hasObservedLabEvidence, conditionDisplayTitle, confidenceText,
   explanationText, formatDriverLabel, driverPriority,
+  RULE_SCORE_CAPTION, labRiskPercent,
 } from './CondicionesUtils'
 
 function EmptyNote({ text }) {
@@ -173,6 +174,8 @@ export default function Condiciones({ goTo, apiResult }) {
     ? conditionResults
     : condiciones.filter(c => !GOAL_CODES.has(c.code))
   const highPriorityCount = deficits.filter(c => Number(c.probabilidad) >= 0.65).length
+  const scoreCaption = apiResult?.condition_score_label ? `${apiResult.condition_score_label} · no es una probabilidad ni un diagnóstico` : RULE_SCORE_CAPTION
+  const labSuggestions = (apiResult?.lab_risk_estimates ?? []).filter(item => item.positive).slice(0, 4)
   const wellnessCount = wellnessPriorities.length
   const labSignalsCount = [...deficits, ...wellnessPriorities].filter(hasObservedLabEvidence).length
 
@@ -213,6 +216,7 @@ export default function Condiciones({ goTo, apiResult }) {
           <span><strong style={{ color: '#C2410C' }}>Naranja:</strong> prioridad alta o media por dieta, síntomas, hábitos o laboratorio.</span>
           <span><strong style={{ color: 'var(--green-dark)' }}>Verde:</strong> señal de contexto o bienestar para ordenar sugerencias.</span>
           <span><strong style={{ color: '#B91C1C' }}>Rojo:</strong> requiere precaución o revisión médica antes de consumir suplementos.</span>
+          <span><strong>Barras:</strong> {scoreCaption}. Se calcula con reglas auditables sobre tus respuestas y, si los diste, tus laboratorios.</span>
         </div>
       </details>
 
@@ -256,6 +260,27 @@ export default function Condiciones({ goTo, apiResult }) {
             ? deficits.map((c, i) => <CondCard key={`${c.code}-${i}`} c={c} />)
             : <EmptyNote text="No se detectaron riesgos priorizados con la información entregada." />}
         </Section>
+
+        {labSuggestions.length > 0 && (
+          <Section
+            title="Exámenes que convendría confirmar"
+            subtitle="Estimación con datos reales (encuestas de salud de EE. UU., no validada en Perú). Solo sugiere un examen; no es diagnóstico."
+          >
+            <div className="alert alert-info" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {labSuggestions.map(item => (
+                <div key={item.target} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
+                  <span style={{ fontSize: 12, color: 'var(--gray-800)', fontWeight: 700, lineHeight: 1.35 }}>{item.label}</span>
+                  <span style={{ fontSize: 11, color: 'var(--gray-600)', whiteSpace: 'nowrap' }}>
+                    {labRiskPercent(item.probability)} estimado
+                  </span>
+                </div>
+              ))}
+              <span style={{ fontSize: 11, color: 'var(--gray-600)', lineHeight: 1.4 }}>
+                Un hemograma o perfil básico te lo confirma. Esta estimación no cambia qué suplementos se sugieren.
+              </span>
+            </div>
+          </Section>
+        )}
 
         <Section
           title="Prioridades de bienestar"
