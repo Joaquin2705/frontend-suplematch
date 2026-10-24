@@ -21,10 +21,54 @@ export const SUPPLEMENT_DOSE_FIELDS = {
   omega_3: { label: 'Omega 3 EPA+DHA', unit: 'mg/día', min: 0, max: 5000, step: 50, placeholder: 'Ej: 1000' },
   proteina: { label: 'Proteína en polvo', unit: 'g/día', min: 0, max: 200, step: 1, placeholder: 'Ej: 25' },
   multivitaminico: { label: 'Multivitamínico', unit: 'tabletas/día', min: 0, max: 10, step: 0.5, placeholder: 'Ej: 1' },
+  vitamina_b12: { label: 'Vitamina B12', unit: 'mcg/día', min: 0, max: 5000, step: 50, placeholder: 'Ej: 250' },
   otro: { label: 'Otro suplemento', unit: 'porción/día', min: 0, max: 20, step: 0.5, placeholder: 'Ej: 1' },
 }
 
+// Valores clave que se pueden tipear sin subir el examen (contrato 2026-10-24.1). Se envían como lab_results.
+export const KEY_LAB_FIELDS = [
+  { key: 'lab_vitamin_d', label: 'Vitamina D 25-OH', lab: { code: 'vitamin_d', unit: 'ng/mL' }, suffix: 'ng/mL', min: 1, max: 200, step: 0.1, placeholder: 'Ej: 24' },
+  { key: 'lab_b12', label: 'Vitamina B12', lab: { code: 'b12', unit: 'pg/mL' }, suffix: 'pg/mL', min: 50, max: 3000, step: 1, placeholder: 'Ej: 350' },
+  { key: 'lab_ferritin', label: 'Ferritina', lab: { code: 'ferritin', unit: 'ng/mL' }, suffix: 'ng/mL', min: 1, max: 2000, step: 1, placeholder: 'Ej: 40' },
+  { key: 'lab_hemoglobin', label: 'Hemoglobina', lab: { code: 'hemoglobin', unit: 'g/dL' }, suffix: 'g/dL', min: 3, max: 25, step: 0.1, placeholder: 'Ej: 13.5' },
+  { key: 'lab_glucose', label: 'Glucosa en ayunas', lab: { code: 'glucose', unit: 'mg/dL' }, suffix: 'mg/dL', min: 30, max: 600, step: 1, placeholder: 'Ej: 92' },
+]
+
+const FATIGA_PERSISTENTE = ['a_menudo', 'siempre']
+const DIETA_VEGETAL = ['vegano', 'vegetariano']
+const ageOf = answers => Number(answers.antropometria?.age_years)
+
+// Pasos opcionales que solo se muestran a quien le cambian el resultado (2026-10-24). Mantener alineado con
+// rules.conditional_fields del contrato.
+export const STEP_GATES = {
+  // Protector y piel al sol solo importan si la exposición ya es baja o moderada.
+  sol_detalle: answers => ['menos_15min', '15_30min'].includes(answers.exposicion_solar),
+  // Pérdidas de hierro: mujeres en edad fértil, o cualquiera con fatiga persistente.
+  factores_hierro: answers => (answers.sexo === 'femenino' && ageOf(answers) >= 12 && ageOf(answers) <= 50)
+    || FATIGA_PERSISTENTE.includes(answers.fatiga),
+  // B12 dietaria: dieta vegetal o 50+ (absorción menor con la edad).
+  factores_b12: answers => DIETA_VEGETAL.includes(answers.tipo_dieta) || ageOf(answers) >= 50,
+  // Metformina u omeprazol: se pregunta junto a seguridad, si declaró medicación o tiene 50+.
+  medicamentos_b12: answers => (answers.condiciones_seguridad || []).some(item => ['diabetes_medicada', 'medicacion_cronica'].includes(item))
+    || ageOf(answers) >= 50,
+}
+
 export const QUESTIONS = [
+  {
+    key: 'analisis_ultimo_anio',
+    section: 'Exámenes',
+    title: '¿Te hiciste un análisis de sangre en el último año?',
+    sub: 'Un valor medido pesa más que cualquier pregunta. Si lo tienes a mano, úsalo primero.',
+    note: 'Si no tienes análisis, la encuesta sigue igual y te diremos qué exámenes convendría pedir.',
+    type: 'single',
+    required: true,
+    options: [
+      { label: 'Sí, y tengo los resultados a mano', value: 'si_a_mano', detail: 'Podrás subir el archivo o tipear 5 valores clave.' },
+      { label: 'Sí, pero no los tengo a mano', value: 'si_sin_resultados', detail: 'Puedes agregarlos después desde Exámenes.' },
+      { label: 'No me hice análisis', value: 'no', detail: 'Seguimos solo con la encuesta.' },
+      { label: 'No recuerdo', value: 'no_se', detail: 'Seguimos solo con la encuesta.' },
+    ],
+  },
   {
     key: 'labs_intro',
     section: 'Exámenes',
@@ -33,6 +77,18 @@ export const QUESTIONS = [
     note: 'Si subes un archivo, revisarás y corregirás los valores detectados antes de usarlos.',
     type: 'lab_entry',
     required: false,
+    when: answers => answers.analisis_ultimo_anio === 'si_a_mano',
+  },
+  {
+    key: 'valores_clave',
+    section: 'Exámenes',
+    title: 'Valores clave de tu análisis',
+    sub: 'Tipea solo los que aparezcan en tu informe, con la unidad indicada. Si ya subiste el archivo, puedes pasar este paso.',
+    note: 'Revisa la unidad: vitamina D en ng/mL (no nmol/L), B12 en pg/mL, hemoglobina en g/dL.',
+    type: 'field_group',
+    required: false,
+    when: answers => answers.analisis_ultimo_anio === 'si_a_mano' && labResultCount() === 0,
+    fields: KEY_LAB_FIELDS,
   },
   {
     key: 'antropometria',
@@ -70,42 +126,51 @@ export const QUESTIONS = [
       { label: 'Vegana', value: 'vegano', detail: 'No incluye alimentos de origen animal.' },
     ],
   },
-  {
-    key: 'dieta',
-    section: 'Alimentación',
-    title: '¿Qué tan variada fue tu alimentación en las últimas 2 semanas?',
-    sub: 'Piensa en frutas, verduras, proteínas, granos y grasas saludables.',
-    note: 'Variada significa que no repites casi siempre lo mismo y cubres varios grupos de alimentos.',
-    type: 'single',
-    required: true,
-    options: [
-      { label: 'Poco variada', value: 'poco_variada', detail: 'Pocas fuentes de nutrientes o comidas repetidas.' },
-      { label: 'Regular', value: 'regular', detail: 'Algo variada, pero con vacíos frecuentes.' },
-      { label: 'Bastante variada', value: 'bastante_variada', detail: 'Incluye varios grupos de alimentos.' },
-      { label: 'Muy balanceada', value: 'muy_balanceada', detail: 'Variada y consistente la mayoría de días.' },
-    ],
-  },
+  // La pregunta de variedad de dieta (key 'dieta') se quitó el 2026-10-24: cambiaba la detección en 3 de 120 casos y el
+  // bloque de alimentos la cubre (scripts/clinical/valor_preguntas.py en el backend). El backend la sigue aceptando.
   {
     key: 'alimentacion_medible',
     section: 'Alimentación',
     title: 'Alimentos de una semana típica',
-    sub: 'Responde por semana cuando sea más fácil. Si no sabes un valor, déjalo vacío; no se tomará como cero.',
-    note: 'Una porción es una cantidad práctica: una palma de carne/pescado, un huevo, una taza de lácteos, media taza de menestras o una fruta mediana.',
+    sub: 'Cuenta porciones, no comidas. Si comes pollo en el almuerzo y en la cena, son 2 al día. Usa "No sé" si no lo tienes claro: no se tomará como cero.',
+    note: 'Para estimar la proteína necesitamos todo el bloque. Si dejas uno en "No sé", no la estimamos en vez de suponer cero.',
     type: 'field_group',
     required: false,
     fields: [
-      { key: 'fish_servings_week', label: 'Pescado o mariscos por semana', type: 'scale5', scale: 'weekly_food' },
-      { key: 'dairy_servings_week', label: 'Lácteos o fortificados por semana', type: 'scale5', scale: 'weekly_food' },
-      { key: 'legume_servings_week', label: 'Menestras/legumbres por semana', type: 'scale5', scale: 'weekly_food' },
-      { key: 'red_meat_servings_week', label: 'Carnes rojas o vísceras por semana', type: 'scale5', scale: 'weekly_food' },
-      { key: 'poultry_servings_week', label: 'Pollo, pavo u otras carnes blancas por semana', type: 'scale5', scale: 'weekly_food' },
-      { key: 'eggs_servings_week', label: 'Huevos por semana', type: 'scale5', scale: 'weekly_food' },
+      { key: 'poultry_servings_week', label: 'Pollo o pavo', hint: '1 porción = 1 presa o 1 filete', type: 'scale5', scale: 'weekly_food' },
+      { key: 'red_meat_servings_week', label: 'Carne roja o vísceras', hint: '1 porción = 1 bistec, 1 porción de hígado o sangrecita', type: 'scale5', scale: 'weekly_food' },
+      { key: 'fish_servings_week', label: 'Pescado o mariscos', hint: '1 porción = 1 filete, 1 lata de atún o 1 plato de cebiche', type: 'scale5', scale: 'weekly_food' },
+      { key: 'eggs_servings_week', label: 'Huevos', hint: '1 porción = 1 huevo', type: 'scale5', scale: 'weekly_food' },
+      { key: 'legume_servings_week', label: 'Menestras', hint: '1 porción = 1 taza cocida de lentejas, frejoles, pallares o garbanzos', type: 'scale5', scale: 'weekly_food' },
+      { key: 'dairy_servings_week', label: 'Lácteos', hint: '1 porción = 1 vaso de leche, 1 yogur o 1 tajada de queso', type: 'scale5', scale: 'weekly_food' },
       { key: 'no_meat', label: 'No consumo carnes', type: 'checkbox' },
-      { key: 'fruit_veg_servings_day', label: 'Frutas y verduras por día', type: 'scale5', scale: 'daily_fruit_veg' },
+      { key: 'fruit_veg_servings_day', label: 'Frutas y verduras por día', hint: '1 porción = 1 fruta mediana o 1 taza de verduras', type: 'scale5', scale: 'daily_fruit_veg' },
       { key: 'protein_g_day_estimate', label: 'Proteína diaria solo si la conoces', placeholder: 'Opcional; la app la estima con alimentos', suffix: 'g/día', min: 0, max: 300, step: 1 },
+    ],
+  },
+  {
+    key: 'factores_b12',
+    section: 'Alimentación',
+    title: 'Vitamina B12',
+    sub: 'La B12 viene casi solo de alimentos animales o fortificados, y después de los 50 se absorbe peor.',
+    type: 'field_group',
+    required: false,
+    when: STEP_GATES.factores_b12,
+    fields: [
       {
-        key: 'iron_anemia_history',
-        label: '¿Te han mencionado anemia, ferritina baja o hierro bajo?',
+        key: 'anios_dieta_vegetal',
+        label: '¿Cuánto tiempo llevas con dieta vegetariana o vegana?',
+        type: 'select',
+        when: answers => ['vegano', 'vegetariano'].includes(answers.tipo_dieta),
+        options: [
+          { label: 'Menos de 1 año', value: 'menos_1' },
+          { label: '1 a 3 años', value: '1_3' },
+          { label: 'Más de 3 años', value: 'mas_3' },
+        ],
+      },
+      {
+        key: 'alimentos_fortificados_b12',
+        label: '¿Consumes a diario leche vegetal, cereales u otros alimentos fortificados con B12?',
         type: 'select',
         options: [
           { label: 'No', value: 'no' },
@@ -128,6 +193,37 @@ export const QUESTIONS = [
       { label: '15 a 30 minutos', value: '15_30min', detail: 'Exposición moderada.' },
       { label: '30 a 60 minutos', value: '30_60min', detail: 'Exposición suficiente para muchas personas.' },
       { label: 'Más de 1 hora', value: 'mas_1h', detail: 'Exposición alta.' },
+    ],
+  },
+  {
+    key: 'sol_detalle',
+    section: 'Hábitos',
+    title: 'Detalle de tu exposición al sol',
+    sub: 'El protector solar y la ropa reducen cuánta vitamina D produce la piel.',
+    type: 'field_group',
+    required: false,
+    when: STEP_GATES.sol_detalle,
+    fields: [
+      {
+        key: 'protector_solar',
+        label: '¿Usas protector solar cuando sales?',
+        type: 'select',
+        options: [
+          { label: 'Nunca o casi nunca', value: 'nunca' },
+          { label: 'A veces', value: 'a_veces' },
+          { label: 'Siempre', value: 'siempre' },
+        ],
+      },
+      {
+        key: 'piel_expuesta',
+        label: '¿Qué parte de tu piel suele recibir el sol?',
+        type: 'select',
+        options: [
+          { label: 'Solo cara y manos', value: 'cara_manos' },
+          { label: 'Cara, manos y brazos', value: 'brazos' },
+          { label: 'Brazos y piernas', value: 'brazos_piernas' },
+        ],
+      },
     ],
   },
   {
@@ -190,6 +286,90 @@ export const QUESTIONS = [
       { label: 'A veces', value: 'a_veces', detail: 'Aparece algunos días.' },
       { label: 'A menudo', value: 'a_menudo', detail: 'Afecta varias actividades semanales.' },
       { label: 'Siempre', value: 'siempre', detail: 'Presente casi todos los días.' },
+    ],
+  },
+  {
+    key: 'fatiga_detalle',
+    section: 'Señales',
+    title: 'Sobre tu cansancio',
+    sub: 'Ayuda a distinguir cansancio por dormir poco o un mal momento de una señal nutricional que persiste.',
+    type: 'field_group',
+    required: false,
+    when: answers => FATIGA_PERSISTENTE.includes(answers.fatiga),
+    fields: [
+      {
+        key: 'fatiga_duracion',
+        label: '¿Desde cuándo te sientes así?',
+        type: 'select',
+        options: [
+          { label: 'Menos de 2 semanas', value: 'menos_2_semanas' },
+          { label: 'Entre 2 semanas y 3 meses', value: '2_semanas_3_meses' },
+          { label: 'Más de 3 meses', value: 'mas_3_meses' },
+        ],
+      },
+      {
+        key: 'fatiga_mejora_descanso',
+        label: '¿Mejora cuando duermes bien o descansas?',
+        type: 'select',
+        options: [
+          { label: 'Sí, mejora claramente', value: 'si' },
+          { label: 'A veces', value: 'a_veces' },
+          { label: 'No mejora', value: 'no' },
+        ],
+      },
+      { key: 'fatigue_days_week', label: 'Días con fatiga por semana', placeholder: 'Ej: 4', min: 0, max: 7, step: 1 },
+    ],
+  },
+  {
+    key: 'factores_hierro',
+    section: 'Señales',
+    title: 'Hierro',
+    sub: 'Perder sangre es la causa más común de hierro bajo, incluso con buena alimentación.',
+    type: 'field_group',
+    required: false,
+    when: STEP_GATES.factores_hierro,
+    fields: [
+      {
+        key: 'iron_anemia_history',
+        label: '¿Te han mencionado anemia, ferritina baja o hierro bajo?',
+        type: 'select',
+        options: [
+          { label: 'No', value: 'no' },
+          { label: 'Sí', value: 'si' },
+          { label: 'No estoy seguro', value: 'no_se' },
+        ],
+      },
+      {
+        key: 'menstruacion_abundante',
+        label: '¿Tus menstruaciones son abundantes (cambias protección cada 1-2 horas o duran más de 7 días)?',
+        type: 'select',
+        when: answers => answers.sexo === 'femenino',
+        options: [
+          { label: 'No', value: 'no' },
+          { label: 'Sí', value: 'si' },
+          { label: 'No aplica (no menstrúo)', value: 'no_aplica' },
+        ],
+      },
+      {
+        key: 'parto_ultimo_anio',
+        label: '¿Tuviste un parto en el último año?',
+        type: 'select',
+        when: answers => answers.sexo === 'femenino',
+        options: [
+          { label: 'No', value: 'no' },
+          { label: 'Sí', value: 'si' },
+        ],
+      },
+      {
+        key: 'dona_sangre',
+        label: '¿Donas sangre?',
+        type: 'select',
+        options: [
+          { label: 'No', value: 'no' },
+          { label: '1 vez al año', value: '1_al_anio' },
+          { label: '2 o más veces al año', value: '2_o_mas_al_anio' },
+        ],
+      },
     ],
   },
   {
@@ -321,7 +501,6 @@ export const QUESTIONS = [
       { key: 'water_intake_l_day', label: 'Agua aproximada al día', placeholder: 'Ej: 2', suffix: 'L/día', min: 0, max: 10, step: 0.1 },
       { key: 'heavy_sweat_days_week', label: 'Días con sudor intenso por semana', placeholder: 'Ej: 3', min: 0, max: 7, step: 1 },
       { key: 'headache_days_week', label: 'Días con dolor de cabeza por semana', placeholder: 'Ej: 2', min: 0, max: 7, step: 1 },
-      { key: 'fatigue_days_week', label: 'Días con fatiga por semana', placeholder: 'Ej: 4', min: 0, max: 7, step: 1 },
       { key: 'alcohol_drinks_week', label: 'Tragos estándar por semana', placeholder: 'Ej: 2', min: 0, max: 80, step: 1 },
       {
         key: 'digestive_discomfort',
@@ -335,13 +514,37 @@ export const QUESTIONS = [
           { label: 'Severa', value: 'severo' },
         ],
       },
+      // Tabaco y salud autopercibida alimentan solo el modelo real de riesgo de laboratorio (lab_risk_estimates).
+      // Aporte medido con NHANES: marginal; por eso van aquí, sin pantalla propia.
+      {
+        key: 'tabaco',
+        label: '¿Fumas?',
+        type: 'select',
+        options: [
+          { label: 'Nunca he fumado', value: 'nunca' },
+          { label: 'Fumaba, ya no', value: 'ex' },
+          { label: 'Fumo actualmente', value: 'actual' },
+        ],
+      },
+      {
+        key: 'salud_autopercibida',
+        label: 'En general, ¿cómo dirías que es tu salud?',
+        type: 'select',
+        options: [
+          { label: 'Excelente', value: 'excelente' },
+          { label: 'Muy buena', value: 'muy_buena' },
+          { label: 'Buena', value: 'buena' },
+          { label: 'Regular', value: 'regular' },
+          { label: 'Mala', value: 'mala' },
+        ],
+      },
     ],
   },
   {
     key: 'objetivos',
     section: 'Objetivos',
     title: '¿Qué quieres priorizar?',
-    sub: 'Elige hasta 4 objetivos. Sirve para ordenar recomendaciones cuando hay varias opciones.',
+    sub: 'Elige hasta 4 objetivos. Solo ordena lo que mostramos primero; no cambia qué riesgos detectamos.',
     type: 'multi',
     max: 4,
     options: [
@@ -402,6 +605,7 @@ export const QUESTIONS = [
       { label: 'Hierro', value: 'hierro', detail: 'Solo si lo usas actualmente.' },
       { label: 'Omega 3', value: 'omega_3', detail: 'EPA/DHA o aceite de pescado.' },
       { label: 'Multivitamínico', value: 'multivitaminico', detail: 'Fórmula con varios nutrientes.' },
+      { label: 'Vitamina B12', value: 'vitamina_b12', detail: 'Sola o en complejo B.' },
       { label: 'Proteína', value: 'proteina', detail: 'Whey, vegetal u otra.' },
       { label: 'Otro suplemento', value: 'otro', detail: 'No listado arriba.' },
     ],
@@ -472,6 +676,31 @@ export const QUESTIONS = [
       { label: 'Problema tiroideo', value: 'problema_tiroideo', detail: 'Cuidado con yodo, algas y fórmulas tiroideas.' },
       { label: 'Uso anticoagulantes', value: 'anticoagulantes', detail: 'Riesgo de interacciones.' },
       { label: 'Medicación crónica', value: 'medicacion_cronica', detail: 'Revisar interacciones.' },
+      // Añadidas 2026-10-23: activan reglas de interacción que el backend ya tenía (contrato 2026-10-23.1).
+      { label: 'Medicación para la glucosa', value: 'diabetes_medicada', detail: 'Cromo, canela y otros pueden alterar el control glucémico.' },
+      { label: 'Hipertensión o arritmias', value: 'hipertension', detail: 'Cafeína, energizantes y preworkouts requieren cautela.' },
+      { label: 'Uso de sedantes', value: 'sedantes', detail: 'Melatonina, valeriana o L-teanina pueden sumar somnolencia.' },
+      { label: 'Inmunosupresión o enfermedad grave', value: 'inmunosupresion', detail: 'Probióticos y hierbas requieren evaluación médica previa.' },
+    ],
+  },
+  {
+    key: 'medicamentos_b12_paso',
+    section: 'Seguridad',
+    title: 'Medicamentos que afectan la vitamina B12',
+    sub: 'Algunos medicamentos de uso diario reducen cuánta B12 absorbes.',
+    type: 'field_group',
+    required: false,
+    when: STEP_GATES.medicamentos_b12,
+    fields: [
+      {
+        key: 'medicamentos_b12',
+        label: '¿Tomas alguno de estos de forma habitual?',
+        type: 'multi_select',
+        options: [
+          { label: 'Metformina', value: 'metformina' },
+          { label: 'Omeprazol u otro antiácido diario', value: 'antiacidos_ibp' },
+        ],
+      },
     ],
   },
   {
@@ -489,19 +718,23 @@ export const QUESTIONS = [
 Object.freeze(QUESTIONS)
 
 export const SCALE_PRESETS = {
+  // Porciones por semana. Debe coincidir con rules.food_block.scale_values del contrato (0, 1, 3, 5, 7, 14).
+  // La escala anterior terminaba en "5+/sem" (=7): nadie podía declarar 2 porciones diarias y lácteos o
+  // proteína salían bajos casi siempre.
   weekly_food: [
-    { point: 1, value: 0, label: 'Casi nunca', hint: '0/sem' },
-    { point: 2, value: 1, label: 'Poco', hint: '1/sem' },
-    { point: 3, value: 2, label: 'Moderado', hint: '2/sem' },
-    { point: 4, value: 4, label: 'Frecuente', hint: '3-4/sem' },
-    { point: 5, value: 7, label: 'Muy frecuente', hint: '5+/sem' },
+    { point: 1, value: 0, short: 'No', label: 'No consumo', hint: '0/sem' },
+    { point: 2, value: 1, short: '1/sem', label: '1 vez por semana', hint: '1/sem' },
+    { point: 3, value: 3, short: '2-3', label: '2 a 3 por semana', hint: '2-3/sem' },
+    { point: 4, value: 5, short: '4-6', label: '4 a 6 por semana', hint: '4-6/sem' },
+    { point: 5, value: 7, short: '1/día', label: '1 al día', hint: '7/sem' },
+    { point: 6, value: 14, short: '2+/día', label: '2 o más al día', hint: '14+/sem' },
   ],
   daily_fruit_veg: [
-    { point: 1, value: 0, label: 'Casi nada', hint: '0/día' },
-    { point: 2, value: 1, label: 'Poco', hint: '1/día' },
-    { point: 3, value: 2, label: 'Moderado', hint: '2/día' },
-    { point: 4, value: 3, label: 'Bueno', hint: '3/día' },
-    { point: 5, value: 5, label: 'Alto', hint: '4+/día' },
+    { point: 1, value: 0, short: '0', label: 'Casi nada', hint: '0/día' },
+    { point: 2, value: 1, short: '1', label: '1 al día', hint: '1/día' },
+    { point: 3, value: 2, short: '2', label: '2 al día', hint: '2/día' },
+    { point: 4, value: 3, short: '3', label: '3 al día', hint: '3/día' },
+    { point: 5, value: 5, short: '4+', label: '4 o más al día', hint: '4+/día' },
   ],
 }
 
@@ -649,8 +882,13 @@ export function normalizeMultiSelection(q, current, value) {
   return next
 }
 
+export function fieldIsVisible(field, answers) {
+  return !field.when || field.when(answers)
+}
+
 export function buildPayload(answers) {
   const payload = {}
+  const typedLabs = []
   for (const q of QUESTIONS) {
     if (q.when && !q.when(answers)) continue
     const value = answers[q.key]
@@ -710,7 +948,15 @@ export function buildPayload(answers) {
     if (q.type === 'field_group') {
       if (value && typeof value === 'object') {
         for (const field of q.fields) {
+          if (!fieldIsVisible(field, answers)) continue
           const fieldValue = value[field.key]
+          if (field.lab) {
+            const labValue = Number(fieldValue)
+            if (fieldValue !== '' && fieldValue != null && Number.isFinite(labValue) && labValue > 0) {
+              typedLabs.push({ code: field.lab.code, value: labValue, unit: field.lab.unit })
+            }
+            continue
+          }
           if (field.type === 'current_supplement_doses') {
             if (fieldValue && typeof fieldValue === 'object') {
               const normalizedDoses = {}
@@ -763,14 +1009,17 @@ export function buildPayload(answers) {
   if (!payload.suplementos_dosis_conocida) {
     delete payload.suplementos_dosis_actual
   }
+  let labResults = []
   try {
-    const labResults = JSON.parse(localStorage.getItem('suplematch_lab_results') || '[]')
-    if (Array.isArray(labResults) && labResults.length > 0) {
-      payload.lab_results = labResults.slice(0, 40)
-    }
+    const stored = JSON.parse(localStorage.getItem('suplematch_lab_results') || '[]')
+    if (Array.isArray(stored)) labResults = stored
   } catch {
     // Ignore invalid localStorage data.
   }
+  // Los valores tipeados en "Valores clave" completan lo que vino del examen subido, sin pisarlo.
+  const storedCodes = new Set(labResults.map(item => item?.code))
+  labResults = [...labResults, ...typedLabs.filter(item => !storedCodes.has(item.code))]
+  if (labResults.length > 0) payload.lab_results = labResults.slice(0, 40)
   if (!payload.objetivos) payload.objetivos = []
   return payload
 }
@@ -781,6 +1030,7 @@ export function fieldGroupIsValid(q, answers) {
   const selectedSupplements = Array.isArray(answers.suplementos_actuales) ? answers.suplementos_actuales : []
 
   for (const field of q.fields) {
+    if (!fieldIsVisible(field, answers)) continue
     const fieldValue = value[field.key]
     if (field.type === 'current_supplement_doses') {
       if (!value.suplementos_dosis_conocida) continue
@@ -882,6 +1132,7 @@ export function answerLabel(q, answers) {
   if (q.type === 'field_group') {
     if (!value || typeof value !== 'object') return 'Sin responder'
     const labels = q.fields
+      .filter(field => fieldIsVisible(field, answers))
       .map(field => {
         const fieldValue = value[field.key]
         if (fieldValue === undefined || fieldValue === null || fieldValue === '') return null
@@ -931,9 +1182,10 @@ export function answerLabel(q, answers) {
 
 export function scaleSummary(field, value) {
   const options = SCALE_PRESETS[field.scale] ?? SCALE_PRESETS.weekly_food
+  if (value === '' || value === null || value === undefined) return 'No sé'
   const selected = options.find(option => Number(option.value) === Number(value))
   if (!selected) return 'Sin responder'
-  return `${selected.point}/5 (${selected.hint})`
+  return selected.label
 }
 
 export function labResultCount() {
@@ -971,6 +1223,18 @@ export function safetyAlerts(answers) {
   }
   if (conditions.includes('medicacion_cronica')) {
     alerts.push('Medicación crónica: confirma posibles interacciones antes de iniciar cualquier suplemento.')
+  }
+  if (conditions.includes('diabetes_medicada')) {
+    alerts.push('Medicación para glucosa: cromo, canela y otros suplementos pueden alterar el control glucémico; valida con tu médico.')
+  }
+  if (conditions.includes('hipertension')) {
+    alerts.push('Hipertensión o arritmias: cafeína, energizantes y preworkouts requieren cautela.')
+  }
+  if (conditions.includes('sedantes')) {
+    alerts.push('Uso de sedantes: melatonina, valeriana y L-teanina pueden aumentar la somnolencia.')
+  }
+  if (conditions.includes('inmunosupresion')) {
+    alerts.push('Inmunosupresión o enfermedad grave: probióticos y fórmulas herbales requieren evaluación médica previa.')
   }
 
   return alerts

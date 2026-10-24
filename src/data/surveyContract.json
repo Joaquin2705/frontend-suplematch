@@ -6,6 +6,22 @@
       "ocasional",
       "frecuente"
     ],
+    "alimentos_fortificados_b12": [
+      "no",
+      "si",
+      "no_se"
+    ],
+    "analisis_ultimo_anio": [
+      "si_a_mano",
+      "si_sin_resultados",
+      "no",
+      "no_se"
+    ],
+    "anios_dieta_vegetal": [
+      "menos_1",
+      "1_3",
+      "mas_3"
+    ],
     "caffeine_after_3pm": [
       "no",
       "a_veces",
@@ -27,7 +43,11 @@
       "enfermedad_hepatica",
       "problema_tiroideo",
       "anticoagulantes",
-      "medicacion_cronica"
+      "medicacion_cronica",
+      "diabetes_medicada",
+      "inmunosupresion",
+      "sedantes",
+      "hipertension"
     ],
     "dieta": [
       "poco_variada",
@@ -41,6 +61,11 @@
       "moderado",
       "frecuente",
       "severo"
+    ],
+    "dona_sangre": [
+      "no",
+      "1_al_anio",
+      "2_o_mas_al_anio"
     ],
     "edad_rango": [
       "menos_18",
@@ -66,6 +91,16 @@
       "a_menudo",
       "siempre"
     ],
+    "fatiga_duracion": [
+      "menos_2_semanas",
+      "2_semanas_3_meses",
+      "mas_3_meses"
+    ],
+    "fatiga_mejora_descanso": [
+      "si",
+      "no",
+      "a_veces"
+    ],
     "frecuencia_ejercicio": [
       "casi_nunca",
       "1_2_semana",
@@ -88,6 +123,15 @@
       "no",
       "si",
       "no_se"
+    ],
+    "medicamentos_b12": [
+      "metformina",
+      "antiacidos_ibp"
+    ],
+    "menstruacion_abundante": [
+      "si",
+      "no",
+      "no_aplica"
     ],
     "night_wakeups": [
       "nunca",
@@ -122,17 +166,31 @@
       "salud_cardiovascular",
       "salud_cognitiva"
     ],
+    "parto_ultimo_anio": [
+      "si",
+      "no"
+    ],
     "peso_rango": [
       "menos_50",
       "50_65",
       "66_80",
       "mas_80"
     ],
+    "piel_expuesta": [
+      "cara_manos",
+      "brazos",
+      "brazos_piernas"
+    ],
     "presupuesto": [
       "bajo",
       "medio",
       "alto",
       "sin_preferencia"
+    ],
+    "protector_solar": [
+      "nunca",
+      "a_veces",
+      "siempre"
     ],
     "recovery_difficulty": [
       "no",
@@ -147,6 +205,13 @@
       "alergia_pescado_mariscos",
       "evita_gelatina",
       "sin_gluten"
+    ],
+    "salud_autopercibida": [
+      "excelente",
+      "muy_buena",
+      "buena",
+      "regular",
+      "mala"
     ],
     "sexo": [
       "femenino",
@@ -177,6 +242,7 @@
       "omega_3",
       "multivitaminico",
       "proteina",
+      "vitamina_b12",
       "otro"
     ],
     "suplementos_frecuencia": [
@@ -184,6 +250,11 @@
       "varias_semana",
       "ocasional",
       "no_se"
+    ],
+    "tabaco": [
+      "nunca",
+      "ex",
+      "actual"
     ],
     "talla_rango": [
       "menos_155",
@@ -210,6 +281,50 @@
     ]
   },
   "rules": {
+    "conditional_fields": {
+      "anios_dieta_vegetal": {
+        "tipo_dieta": [
+          "vegano",
+          "vegetariano"
+        ]
+      },
+      "fatiga_duracion": {
+        "fatiga": [
+          "a_menudo",
+          "siempre"
+        ]
+      },
+      "fatiga_mejora_descanso": {
+        "fatiga": [
+          "a_menudo",
+          "siempre"
+        ]
+      },
+      "menstruacion_abundante": {
+        "sexo": [
+          "femenino"
+        ]
+      },
+      "parto_ultimo_anio": {
+        "sexo": [
+          "femenino"
+        ]
+      }
+    },
+    "conditional_steps": {
+      "factores_b12": "tipo_dieta in [vegano, vegetariano] or age_years >= 50",
+      "factores_hierro": "(sexo == femenino and 12 <= age_years <= 50) or fatiga in [a_menudo, siempre]",
+      "fatiga_detalle": "fatiga in [a_menudo, siempre]",
+      "lab_entry / valores_clave": "analisis_ultimo_anio == si_a_mano",
+      "medicamentos_b12_paso": "condiciones_seguridad contiene diabetes_medicada o medicacion_cronica, o age_years >= 50",
+      "sol_detalle": "exposicion_solar in [menos_15min, 15_30min]"
+    },
+    "deprecated_ui_fields": {
+      "dieta": "Autoevaluacion de variedad; cambiaba la deteccion en 3/120 casos. Usar el bloque de alimentos."
+    },
+    "derived_safety_values": {
+      "insomnio": "sleep_quality == 'mala' or night_wakeups == '3_o_mas' or horas_sueno == 'menos_5h'"
+    },
     "exact_fields": {
       "age_years": {
         "derived_field": "edad_rango",
@@ -261,11 +376,31 @@
       "condiciones_seguridad": "ninguna",
       "restricciones": "sin_restricciones"
     },
+    "food_block": {
+      "fields": [
+        "red_meat_servings_week",
+        "poultry_servings_week",
+        "fish_servings_week",
+        "eggs_servings_week",
+        "legume_servings_week",
+        "dairy_servings_week"
+      ],
+      "partial_block_means": "protein_unknown",
+      "scale_values": [
+        0,
+        1,
+        3,
+        5,
+        7,
+        14
+      ]
+    },
     "hard_safety_values": {
       "condiciones_seguridad": [
         "embarazo_lactancia",
         "enfermedad_renal",
-        "enfermedad_hepatica"
+        "enfermedad_hepatica",
+        "inmunosupresion"
       ],
       "edad_rango": [
         "menos_18"
@@ -288,14 +423,55 @@
         "when": {
           "exercise_days_week": 0
         }
+      },
+      {
+        "field": "menstruacion_abundante",
+        "value": "si",
+        "when": {
+          "sexo": "masculino"
+        }
+      },
+      {
+        "field": "parto_ultimo_anio",
+        "value": "si",
+        "when": {
+          "sexo": "masculino"
+        }
       }
     ],
     "max_objetivos": 4,
+    "objetivos_solo_ordenan": true,
     "optimized_fields": {
       "alcohol_drinks_week": {
         "max": 80,
         "min": 0,
         "missing_means": "unknown"
+      },
+      "alimentos_fortificados_b12": {
+        "missing_means": "unknown",
+        "values": [
+          "no",
+          "si",
+          "no_se"
+        ]
+      },
+      "analisis_ultimo_anio": {
+        "missing_means": "unknown",
+        "ui_note": "Primera pregunta. Con 'si_a_mano' la app ofrece subir el examen o tipear 5 valores clave (lab_results).",
+        "values": [
+          "si_a_mano",
+          "si_sin_resultados",
+          "no",
+          "no_se"
+        ]
+      },
+      "anios_dieta_vegetal": {
+        "missing_means": "unknown",
+        "values": [
+          "menos_1",
+          "1_3",
+          "mas_3"
+        ]
       },
       "caffeine_servings_day": {
         "max": 20,
@@ -313,6 +489,14 @@
         "min": 0,
         "missing_means": "unknown"
       },
+      "dona_sangre": {
+        "missing_means": "unknown",
+        "values": [
+          "no",
+          "1_al_anio",
+          "2_o_mas_al_anio"
+        ]
+      },
       "eggs_servings_week": {
         "max": 21,
         "min": 0,
@@ -321,6 +505,22 @@
       "exercise_days_week": {
         "max": 7,
         "min": 0
+      },
+      "fatiga_duracion": {
+        "missing_means": "unknown",
+        "values": [
+          "menos_2_semanas",
+          "2_semanas_3_meses",
+          "mas_3_meses"
+        ]
+      },
+      "fatiga_mejora_descanso": {
+        "missing_means": "unknown",
+        "values": [
+          "si",
+          "no",
+          "a_veces"
+        ]
       },
       "fatigue_days_week": {
         "max": 7,
@@ -369,8 +569,40 @@
         "min": 0,
         "missing_means": "unknown"
       },
+      "medicamentos_b12": {
+        "max": 2,
+        "missing_means": "unknown",
+        "type": "multi",
+        "values": [
+          "metformina",
+          "antiacidos_ibp"
+        ]
+      },
+      "menstruacion_abundante": {
+        "missing_means": "unknown",
+        "values": [
+          "si",
+          "no",
+          "no_aplica"
+        ]
+      },
       "no_meat": {
         "type": "boolean"
+      },
+      "parto_ultimo_anio": {
+        "missing_means": "unknown",
+        "values": [
+          "si",
+          "no"
+        ]
+      },
+      "piel_expuesta": {
+        "missing_means": "unknown",
+        "values": [
+          "cara_manos",
+          "brazos",
+          "brazos_piernas"
+        ]
       },
       "poultry_servings_week": {
         "max": 21,
@@ -384,6 +616,14 @@
           5
         ]
       },
+      "protector_solar": {
+        "missing_means": "unknown",
+        "values": [
+          "nunca",
+          "a_veces",
+          "siempre"
+        ]
+      },
       "protein_g_day_estimate": {
         "max": 300,
         "min": 0,
@@ -395,6 +635,17 @@
         "min": 0,
         "missing_means": "unknown"
       },
+      "salud_autopercibida": {
+        "missing_means": "unknown",
+        "ui_note": "Opcional. 'En general, ¿cómo diría que es su salud?' Alimenta lab_risk_estimates.",
+        "values": [
+          "excelente",
+          "muy_buena",
+          "buena",
+          "regular",
+          "mala"
+        ]
+      },
       "screen_hours_day": {
         "max": 24,
         "min": 0,
@@ -402,6 +653,15 @@
       },
       "suplementos_dosis_conocida": {
         "type": "boolean"
+      },
+      "tabaco": {
+        "missing_means": "unknown",
+        "ui_note": "Opcional. Alimenta el modelo real de riesgo de laboratorio (lab_risk_estimates); no bloquea productos.",
+        "values": [
+          "nunca",
+          "ex",
+          "actual"
+        ]
       },
       "water_intake_l_day": {
         "max": 10,
@@ -418,11 +678,14 @@
       "condiciones_seguridad": [
         "problema_tiroideo",
         "anticoagulantes",
-        "medicacion_cronica"
+        "medicacion_cronica",
+        "diabetes_medicada",
+        "sedantes",
+        "hipertension"
       ]
     },
     "toma_suplementos_no_requires_empty_suplementos_actuales": true,
     "toma_suplementos_si_requires_suplementos_actuales": true
   },
-  "version": "2026-06-25.1"
+  "version": "2026-10-24.1"
 }

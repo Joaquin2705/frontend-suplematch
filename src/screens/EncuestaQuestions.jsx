@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import {
   SUPPLEMENT_DOSE_FIELDS, SCALE_PRESETS,
   fieldLabelStyle, exactInputStyle, warningStyle,
-  initialAnthropometrics, labResultCount,
+  initialAnthropometrics, labResultCount, fieldIsVisible,
 } from './EncuestaUtils'
 
 export function PriceRangeQuestion({ q, answers, onChange }) {
@@ -179,7 +179,7 @@ export function FieldGroupQuestion({ q, answers, onChange }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, overflowY: 'auto', paddingRight: 2 }}>
-      {q.fields.map(field => {
+      {q.fields.filter(field => fieldIsVisible(field, answers)).map(field => {
         const value = stored[field.key]
 
         if (field.type === 'current_supplement_doses') {
@@ -342,7 +342,7 @@ export function FieldGroupQuestion({ q, answers, onChange }) {
         )
       })}
       <div style={{ ...warningStyle, background: 'var(--gray-50)', color: 'var(--gray-600)' }}>
-        Los campos vacíos quedan como dato faltante. No se interpretan como consumo cero.
+        Los campos vacíos quedan como dato faltante: no se toman como cero ni como «no».
       </div>
     </div>
   )
@@ -350,39 +350,50 @@ export function FieldGroupQuestion({ q, answers, onChange }) {
 
 export function Scale5Field({ field, value, onChange }) {
   const options = SCALE_PRESETS[field.scale] ?? SCALE_PRESETS.weekly_food
-  const selected = options.find(option => Number(option.value) === Number(value))
+  const answered = value !== '' && value !== null && value !== undefined
+  const selected = answered ? options.find(option => Number(option.value) === Number(value)) : null
 
   return (
     <div style={fieldLabelStyle}>
       {field.label}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 7 }}>
+      {field.hint && <span style={{ fontSize: 11, color: 'var(--gray-500)', fontWeight: 600 }}>{field.hint}</span>}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${options.length}, 1fr)`, gap: 6 }}>
         {options.map(option => {
-          const active = Number(value) === Number(option.value)
+          const active = answered && Number(value) === Number(option.value)
           return (
             <button
               key={option.point}
               type="button"
               onClick={() => onChange(option.value)}
-              aria-label={`${field.label}: ${option.point} de 5, ${option.label}`}
+              aria-label={`${field.label}: ${option.label}`}
+              aria-pressed={active}
               style={{
-                minHeight: 48,
+                minHeight: 48, padding: '4px 2px',
                 border: `2px solid ${active ? 'var(--green)' : 'var(--gray-200)'}`,
                 background: active ? 'var(--green-light)' : 'white',
                 color: active ? 'var(--green-dark)' : 'var(--gray-700)',
-                borderRadius: 12, fontSize: 15, fontWeight: 950, cursor: 'pointer',
+                borderRadius: 12, fontSize: 12, fontWeight: 900, cursor: 'pointer', lineHeight: 1.15,
               }}
             >
-              {option.point}
+              {option.short ?? option.point}
             </button>
           )
         })}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 10, color: 'var(--gray-400)', fontWeight: 800 }}>
-        <span>1 bajo</span>
-        <span>5 alto</span>
-      </div>
-      <div style={{ fontSize: 12, color: selected ? 'var(--green-dark)' : 'var(--gray-500)', fontWeight: 800, lineHeight: 1.35 }}>
-        {selected ? `${selected.label} · estimado ${selected.hint}` : 'Selecciona 1 a 5 según tu semana típica.'}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 12, color: selected ? 'var(--green-dark)' : 'var(--gray-500)', fontWeight: 800, lineHeight: 1.35 }}>
+          {selected ? selected.label : 'Sin responder: no se toma como cero.'}
+        </span>
+        {answered && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            aria-label={`${field.label}: no sé`}
+            style={{ border: 'none', background: 'none', color: 'var(--gray-500)', fontSize: 12, fontWeight: 800, cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            No sé
+          </button>
+        )}
       </div>
     </div>
   )
