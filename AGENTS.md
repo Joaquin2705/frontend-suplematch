@@ -528,6 +528,8 @@ Reglas: siempre vía `trackEvent` / `trackImpressions`, nunca `fetch` directo; f
 
 Los nombres visibles (suplementos, condiciones, exámenes) llegan del backend en lenguaje común: no mostrar `name`, `code` ni `target` crudos. En `lab_risk_estimates`, `label` es el nombre común y `exam_name` el examen que se pide en el laboratorio (`cutoff` es técnico, no se muestra).
 
+Estrellas por suplemento: `Feedback.jsx` envía `item_ratings: [{component_id, rating}]` (opcional, solo suplementos con `component_id` de esta recomendación; el backend ignora los demás). `recommendations[].user_rating.stars` solo llega con votos suficientes (10); sin `stars` no se muestra calificación. Los botones de estrella usan `aria-pressed` y la etiqueta "N de 5 estrellas para X".
+
 Los scores por condición llegan como `risk_index` + `score_semantics` (`indice_riesgo_reglas`); `probability` es alias obsoleto. No mostrar la palabra "probabilidad" ni porcentajes para condiciones; los porcentajes solo aplican a `lab_risk_estimates` (modelo con datos reales).
 
 ### Estado compartido clave
