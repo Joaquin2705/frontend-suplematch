@@ -376,6 +376,36 @@ test('exámenes sugeridos usan nombres comunes y dicen qué examen pedir', async
   await expect(page.getByText('Colesterol bueno bajo')).toHaveCount(0)
 })
 
+test('cada suplemento muestra su calificación y se califica con estrellas', async ({ page }) => {
+  const fixture = recommendationFixture()
+  fixture.recommendations[0].user_rating = { stars: 4.3, count: 12, score: 0.78, source: 'context' }
+  await mockRecommend(page, fixture)
+  const sent = []
+  await page.route('**/api/v1/feedback', route => {
+    sent.push(route.request().postDataJSON())
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'saved', item_ratings_saved: 1, item_ratings_ignored: [] }) })
+  })
+
+  await page.goto('/')
+  await answerSurvey(page)
+  await page.getByRole('button', { name: /Ver mis recomendaciones/i }).click()
+  await page.getByRole('button', { name: /Ver más información/i }).first().click()
+  await expect(page.getByLabel('Opinión de usuarios: 4.3 de 5 estrellas, 12 opiniones')).toBeVisible()
+  await page.getByRole('button', { name: 'Cerrar' }).click()
+
+  await page.getByRole('button', { name: /Fueron útiles estas recomendaciones/i }).click()
+  await page.getByRole('button', { name: /Dar feedback detallado/i }).click()
+  await page.getByRole('button', { name: /Sí, tienen sentido/i }).click()
+  const fourStars = page.getByRole('button', { name: '4 de 5 estrellas para Vitamin D' })
+  await fourStars.click()
+  await expect(fourStars).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: /Enviar comentario/i }).click()
+
+  await expect.poll(() => sent.length).toBe(1)
+  expect(sent[0].rating).toBe(5)
+  expect(sent[0].item_ratings).toEqual([{ component_id: 'COMP_94DFE28A9A5C', rating: 4 }])
+})
+
 test('usuario que ya toma suplementos ve advertencia de duplicidad', async ({ page }) => {
   await mockRecommend(page, recommendationFixture({
     recommendations: [

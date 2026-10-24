@@ -79,6 +79,8 @@ function normalizeResult(result) {
       commercial_eligible: item.commercial_eligible ?? true,
       commercial_recommendation_blocked: Boolean(item.commercial_recommendation_blocked),
       commercial_block_reason: item.commercial_block_reason ?? null,
+      // Estrellas de otros usuarios; el backend solo manda `stars` con votos suficientes.
+      user_rating: item.user_rating?.stars != null ? { stars: item.user_rating.stars, count: item.user_rating.count ?? 0 } : null,
       products: normalizeProducts(item.products ?? []),
       precio: bestProductPrice(item.products) ?? null,
       icon: iconToEmoji(item.icon_key, index),

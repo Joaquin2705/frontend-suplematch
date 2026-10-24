@@ -9,7 +9,7 @@ const OPCIONES = [
   { emoji: '👎', title: 'No me identifico',        sub: 'El análisis no fue acertado',      rating: 1 },
 ]
 
-const SUPLEMENTOS_FALLBACK = ['Vitamina D3', 'Zinc', 'Vitamina C']
+const STAR_VALUES = [1, 2, 3, 4, 5]
 
 // Resultados reales que alimentan la recompensa del recomendador (reward = 0.4·rating + 0.2·compra
 // + 0.3·sigue tomando a 30 días + 0.1·beneficio percibido). Todos opcionales.
@@ -21,9 +21,12 @@ const OUTCOME_QUESTIONS = [
 
 export default function Feedback({ goTo, showToast, apiResult }) {
   const { authToken } = useAuth()
-  const suplementos = (apiResult?.recomendaciones ?? apiResult?.recommendations)?.map(r => r.nombre).filter(Boolean) ?? SUPLEMENTOS_FALLBACK
+  // Solo los suplementos que la persona vio y que tienen id: el backend ignora los que no estaban en la recomendacion.
+  const suplementos = ((apiResult?.recomendaciones ?? apiResult?.recommendations) ?? [])
+    .filter(r => r.component_id)
+    .map(r => ({ id: r.component_id, nombre: r.nombre ?? r.display_name ?? r.name }))
   const [selected, setSelected]   = useState(null)
-  const [checked,  setChecked]    = useState([])
+  const [stars,    setStars]      = useState({})
   const [outcomes, setOutcomes]   = useState({})
   const [sending,  setSending]    = useState(false)
 
@@ -36,8 +39,8 @@ export default function Feedback({ goTo, showToast, apiResult }) {
     goTo('landing')
   }
 
-  function toggleCheck(s) {
-    setChecked(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
+  function rate(componentId, value) {
+    setStars(prev => (prev[componentId] === value ? { ...prev, [componentId]: undefined } : { ...prev, [componentId]: value }))
   }
 
   async function submit() {
@@ -73,7 +76,10 @@ export default function Feedback({ goTo, showToast, apiResult }) {
         },
         rating: OPCIONES[selected].rating,
         conditions: apiResult?.conditions ?? [],
-        comment: checked.length ? `No aplica: ${checked.join(', ')}` : null,
+        comment: null,
+        item_ratings: Object.entries(stars)
+          .filter(([, value]) => value)
+          .map(([component_id, rating]) => ({ component_id, rating })),
         purchased: outcomes.purchased ?? null,
         still_taking_30d: outcomes.still_taking_30d ?? null,
         perceived_benefit: outcomes.perceived_benefit ?? null,
@@ -120,37 +126,41 @@ export default function Feedback({ goTo, showToast, apiResult }) {
         </div>
       </section>
 
-      <section className="surface-soft" style={{ padding: 15 }}>
-        <div className="section-title">Ajuste opcional</div>
-        <p className="section-copy" style={{ margin: '4px 0 12px' }}>
-          Marca suplementos que no sentiste relacionados contigo.
-        </p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {suplementos.map(s => {
-            const on = checked.includes(s)
-            return (
-              <div key={s} onClick={() => toggleCheck(s)} style={{
-                display: 'flex', alignItems: 'center', gap: 7,
-                padding: '8px 14px',
-                border: `1.5px solid ${on ? 'var(--green)' : 'var(--gray-200)'}`,
-                borderRadius: 99, cursor: 'pointer', fontSize: 13,
-                color: on ? 'var(--green-dark)' : 'var(--gray-600)',
-                background: on ? 'var(--green-light)' : 'white',
-                fontWeight: on ? 600 : 400, transition: 'all 0.2s'
-              }}>
-                <div style={{
-                  width: 18, height: 18, borderRadius: 5,
-                  border: `2px solid ${on ? 'var(--green)' : 'var(--gray-200)'}`,
-                  background: on ? 'var(--green)' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, color: 'white', flexShrink: 0
-                }}>{on ? '✓' : ''}</div>
-                {s}
+      {suplementos.length > 0 && (
+        <section className="surface-soft" style={{ padding: 15 }}>
+          <div className="section-title">Califica cada suplemento</div>
+          <p className="section-copy" style={{ margin: '4px 0 12px' }}>
+            Opcional. De 1 a 5 estrellas, solo los que quieras. Ayuda a ordenar mejor estos suplementos para otras personas.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {suplementos.map(s => (
+              <div key={s.id} role="group" aria-label={`Calificación de ${s.nombre}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14, color: 'var(--gray-700)', fontWeight: 600 }}>{s.nombre}</span>
+                <div style={{ display: 'flex', gap: 2 }}>
+                  {STAR_VALUES.map(value => {
+                    const on = (stars[s.id] ?? 0) >= value
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={stars[s.id] === value}
+                        aria-label={`${value} de 5 estrellas para ${s.nombre}`}
+                        onClick={() => rate(s.id, value)}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer', padding: '4px 3px',
+                          fontSize: 24, lineHeight: 1, color: on ? '#D97706' : 'var(--gray-200)',
+                        }}
+                      >
+                        ★
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-            )
-          })}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="surface-soft" style={{ padding: 15 }}>
         <div className="section-title">Qué pasó después</div>

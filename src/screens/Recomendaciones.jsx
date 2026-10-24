@@ -383,6 +383,15 @@ export default function Recomendaciones({ goTo, prevScreen, apiResult, userData,
           </div>
         </div>
 
+        {rec.user_rating && (
+          <div aria-label={`Opinión de usuarios: ${rec.user_rating.stars} de 5 estrellas, ${rec.user_rating.count} opiniones`} style={{ fontSize: 13, color: 'var(--gray-700)' }}>
+            <span aria-hidden="true" style={{ color: '#D97706', letterSpacing: 1 }}>
+              {'★'.repeat(Math.round(rec.user_rating.stars))}{'☆'.repeat(5 - Math.round(rec.user_rating.stars))}
+            </span>{' '}
+            <strong>{rec.user_rating.stars.toFixed(1)}</strong> de 5 · {rec.user_rating.count} opiniones
+          </div>
+        )}
+
         {rec.dosis && (
           <div style={{ background: 'var(--green-light)', borderRadius: 10, padding: '10px 12px', fontSize: 13, color: 'var(--green-dark)', fontWeight: 800 }}>
             Referencia de dosis: {rec.dosis}
@@ -766,6 +775,7 @@ export default function Recomendaciones({ goTo, prevScreen, apiResult, userData,
               </div>
               <button
                 type="button"
+                aria-label="Cerrar"
                 onClick={() => setInfoRec(null)}
                 style={{ border: 'none', background: 'var(--gray-100)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', fontSize: 16, color: 'var(--gray-600)' }}
               >×</button>
