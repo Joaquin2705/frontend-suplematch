@@ -111,6 +111,16 @@ export async function postRecommendationEvents(payload, token = null) {
   })
 }
 
+export async function postSurveyEvents(payload, token = null) {
+  return request('/api/v1/survey/events', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: authHeaders(token),
+    allowRefresh: false,
+    timeoutMs: 8_000,
+  })
+}
+
 export async function getHistory(token) {
   return request('/api/v1/history/me', {
     headers: authHeaders(token),

@@ -9,6 +9,7 @@ import {
   PriceRangeQuestion, FieldGroupQuestion,
   AnthropometricsQuestion, LabEntryQuestion, ColorLegend,
 } from './EncuestaQuestions'
+import { resetSurveySession, trackSurveyStep } from '../api/surveyEvents'
 
 export default function Encuesta({ goTo, showToast, setUserData }) {
   const { authToken } = useAuth()
@@ -43,6 +44,13 @@ export default function Encuesta({ goTo, showToast, setUserData }) {
       persistAnswers(prev => ({ ...prev, antropometria: initial }))
     }
   }, [answers.antropometria])
+
+  // Embudo: un "view" cada vez que cambia el paso visible (incluido el resumen).
+  const currentStepKey = isSummary ? 'resumen' : q?.key
+  useEffect(() => {
+    if (resumeModal || !currentStepKey) return
+    trackSurveyStep('view', currentStepKey, { position: step, visibleSteps: questions.length, token: authToken })
+  }, [currentStepKey, resumeModal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function persistAnswers(updater) {
     setAnswers(prev => {
@@ -99,6 +107,8 @@ export default function Encuesta({ goTo, showToast, setUserData }) {
         return
       }
       setUserData(buildPayload(answers))
+      trackSurveyStep('submit', 'resumen', { position: step, visibleSteps: questions.length, token: authToken })
+      resetSurveySession()
       try {
         localStorage.removeItem('suplematch_encuesta_answers')
       } catch {
@@ -115,6 +125,7 @@ export default function Encuesta({ goTo, showToast, setUserData }) {
         : q.type === 'multi' ? 'Selecciona al menos una opción' : 'Selecciona una opción')
       return
     }
+    trackSurveyStep('complete', q.key, { position: step, visibleSteps: questions.length, token: authToken })
     if (editingFromSummary) {
       setEditingFromSummary(false)
       setStep(summaryStep)
@@ -126,6 +137,7 @@ export default function Encuesta({ goTo, showToast, setUserData }) {
   }
 
   function skipLabEntry() {
+    trackSurveyStep('complete', q.key, { position: step, visibleSteps: questions.length, token: authToken })
     persistAnswers(prev => ({ ...prev, [q.key]: 'omitido' }))
     if (editingFromSummary) {
       setEditingFromSummary(false)
