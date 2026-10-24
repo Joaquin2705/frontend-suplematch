@@ -94,6 +94,8 @@ function normalizeLabRiskEstimates(items) {
     .map(item => ({
       target: item.target,
       label: item.label ?? item.target,
+      exam_name: item.exam_name ?? null,
+      cutoff: item.cutoff ?? null,
       condition: item.condition ?? null,
       probability: item.probability,
       threshold: item.threshold ?? null,

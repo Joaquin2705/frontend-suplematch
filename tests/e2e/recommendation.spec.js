@@ -342,6 +342,40 @@ test('perfil normal muestra evidencia, trazabilidad y producto comercial', async
   await expect(page.getByText(/Unitario/i)).toBeVisible()
 })
 
+test('exámenes sugeridos usan nombres comunes y dicen qué examen pedir', async ({ page }) => {
+  await mockRecommend(page, recommendationFixture({
+    lab_risk_estimates: [
+      {
+        target: 'target_hba1c_high',
+        label: 'Azúcar en sangre alta en los últimos meses',
+        exam_name: 'Hemoglobina glicosilada (HbA1c)',
+        cutoff: 'HbA1c >= 5.7 %',
+        probability: 0.62,
+        threshold: 0.42,
+        positive: true,
+        score_semantics: 'probabilidad_calibrada_real',
+      },
+      {
+        target: 'target_hdl_low',
+        label: 'Colesterol bueno bajo',
+        exam_name: 'Perfil lipídico (colesterol HDL)',
+        probability: 0.12,
+        threshold: 0.30,
+        positive: false,
+      },
+    ],
+  }))
+
+  await page.goto('/')
+  await answerSurvey(page)
+  await expect(page.getByText(/Exámenes que convendría confirmar/i)).toBeVisible()
+  await expect(page.getByText('Azúcar en sangre alta en los últimos meses')).toBeVisible()
+  await expect(page.getByText('Examen: Hemoglobina glicosilada (HbA1c)')).toBeVisible()
+  await expect(page.getByText('62 % estimado')).toBeVisible()
+  // Solo se sugieren los positivos.
+  await expect(page.getByText('Colesterol bueno bajo')).toHaveCount(0)
+})
+
 test('usuario que ya toma suplementos ve advertencia de duplicidad', async ({ page }) => {
   await mockRecommend(page, recommendationFixture({
     recommendations: [

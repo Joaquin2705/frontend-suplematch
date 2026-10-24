@@ -269,14 +269,19 @@ export default function Condiciones({ goTo, apiResult }) {
             <div className="alert alert-info" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {labSuggestions.map(item => (
                 <div key={item.target} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
-                  <span style={{ fontSize: 12, color: 'var(--gray-800)', fontWeight: 700, lineHeight: 1.35 }}>{item.label}</span>
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 12, color: 'var(--gray-800)', fontWeight: 700, lineHeight: 1.35 }}>{item.label}</span>
+                    {item.exam_name && (
+                      <span style={{ fontSize: 11, color: 'var(--gray-600)', lineHeight: 1.35 }}>Examen: {item.exam_name}</span>
+                    )}
+                  </span>
                   <span style={{ fontSize: 11, color: 'var(--gray-600)', whiteSpace: 'nowrap' }}>
                     {labRiskPercent(item.probability)} estimado
                   </span>
                 </div>
               ))}
               <span style={{ fontSize: 11, color: 'var(--gray-600)', lineHeight: 1.4 }}>
-                Un hemograma o perfil básico te lo confirma. Esta estimación no cambia qué suplementos se sugieren.
+                Pide el examen indicado en tu laboratorio o centro de salud. Esta estimación no cambia qué suplementos se sugieren.
               </span>
             </div>
           </Section>
