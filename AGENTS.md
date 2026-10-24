@@ -526,6 +526,8 @@ Eventos de interacción que alimentan `recommendation_events` en el backend (`PO
 
 Reglas: siempre vía `trackEvent` / `trackImpressions`, nunca `fetch` directo; fire-and-forget (nunca toasts ni `await` que bloquee la UI); no se envía si `recommendation_id` empieza por `rec_frontend` (fixtures/demo). El E2E no mockea este endpoint: los fallos se descartan en silencio por diseño.
 
+Los nombres visibles (suplementos, condiciones, exámenes) llegan del backend en lenguaje común: no mostrar `name`, `code` ni `target` crudos. En `lab_risk_estimates`, `label` es el nombre común y `exam_name` el examen que se pide en el laboratorio (`cutoff` es técnico, no se muestra).
+
 Los scores por condición llegan como `risk_index` + `score_semantics` (`indice_riesgo_reglas`); `probability` es alias obsoleto. No mostrar la palabra "probabilidad" ni porcentajes para condiciones; los porcentajes solo aplican a `lab_risk_estimates` (modelo con datos reales).
 
 ### Estado compartido clave
