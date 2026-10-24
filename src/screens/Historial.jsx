@@ -1,6 +1,20 @@
 import { useEffect, useState } from 'react'
 import { getHistory } from '../api/suplematch'
+import { trackEvent, flush as flushEvents } from '../api/events'
 import { useAuth } from '../context/AuthContext'
+
+const FOLLOW_UP_AFTER_DAYS = 14
+const FOLLOW_UP_KEY = 'suplematch_follow_up_answers'
+
+function daysSince(iso) {
+  const time = new Date(iso).getTime()
+  if (!Number.isFinite(time)) return 0
+  return Math.floor((Date.now() - time) / 86_400_000)
+}
+
+function loadFollowUps() {
+  try { return JSON.parse(localStorage.getItem(FOLLOW_UP_KEY)) || {} } catch { return {} }
+}
 
 const ICON_MAP = [
   [['vitamina d'], '☀️'],
@@ -77,6 +91,23 @@ export default function Historial({ goTo, showToast, setApiResult }) {
   const { authToken } = useAuth()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(Boolean(authToken))
+  const [followUps, setFollowUps] = useState(loadFollowUps)
+
+  // Seguimiento a ~30 días: la señal que más pesa en la recompensa del recomendador (0.3) y que ningún rating da.
+  function answerFollowUp(session, stillTaking) {
+    const recommendationId = session.recommendation_id || session.id
+    const apiLike = { recommendation_id: recommendationId, conditions: session.conditions ?? [], packs: session.packs ?? [] }
+    const sent = trackEvent(apiLike, {
+      eventType: stillTaking ? 'still_taking_30d' : 'stopped',
+      packKey: session.packs?.[0]?.pack_key ?? null,
+      payload: { ui: 'historial', days_since_recommendation: daysSince(session.created_at) },
+    }, authToken)
+    const next = { ...followUps, [recommendationId]: stillTaking ? 'still_taking' : 'stopped' }
+    setFollowUps(next)
+    try { localStorage.setItem(FOLLOW_UP_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+    void flushEvents()
+    showToast(sent ? 'Gracias, registramos tu seguimiento' : 'Gracias por responder')
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -163,6 +194,25 @@ export default function Historial({ goTo, showToast, setApiResult }) {
               </div>
             ))}
           </div>
+          {daysSince(session.created_at) >= FOLLOW_UP_AFTER_DAYS && (session.items?.length ?? 0) > 0 && (
+            <div className="alert alert-info" style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 800 }}>
+                {followUps[session.recommendation_id || session.id]
+                  ? (followUps[session.recommendation_id || session.id] === 'still_taking' ? 'Registrado: sigues con este plan.' : 'Registrado: dejaste este plan.')
+                  : `Pasaron ${daysSince(session.created_at)} días. ¿Sigues tomando lo recomendado?`}
+              </div>
+              {!followUps[session.recommendation_id || session.id] && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn-secondary" style={{ flex: 1, fontSize: 12, padding: '9px 10px' }} onClick={() => answerFollowUp(session, true)}>
+                    Sí, sigo
+                  </button>
+                  <button className="btn-secondary" style={{ flex: 1, fontSize: 12, padding: '9px 10px' }} onClick={() => answerFollowUp(session, false)}>
+                    No, lo dejé
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button
               className="btn-secondary"

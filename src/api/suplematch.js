@@ -96,6 +96,21 @@ export async function postFeedback(payload, token = null) {
   })
 }
 
+/**
+ * Lote de eventos de interaccion (impression, click, product_click, purchase_intent, dismiss,
+ * still_taking_30d, stopped). Maximo 50 por lote; el backend responde 404 si el recommendation_id no existe.
+ * Usar siempre a traves de src/api/events.js (fire-and-forget, nunca bloquea la UI).
+ */
+export async function postRecommendationEvents(payload, token = null) {
+  return request('/api/v1/feedback/events', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: authHeaders(token),
+    allowRefresh: false,
+    timeoutMs: 8_000,
+  })
+}
+
 export async function getHistory(token) {
   return request('/api/v1/history/me', {
     headers: authHeaders(token),

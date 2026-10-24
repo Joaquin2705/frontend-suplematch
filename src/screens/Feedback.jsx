@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { postFeedback } from '../api/suplematch'
+import { trackEvent } from '../api/events'
 import { useAuth } from '../context/AuthContext'
 
 const OPCIONES = [
@@ -10,12 +11,30 @@ const OPCIONES = [
 
 const SUPLEMENTOS_FALLBACK = ['Vitamina D3', 'Zinc', 'Vitamina C']
 
+// Resultados reales que alimentan la recompensa del recomendador (reward = 0.4·rating + 0.2·compra
+// + 0.3·sigue tomando a 30 días + 0.1·beneficio percibido). Todos opcionales.
+const OUTCOME_QUESTIONS = [
+  { key: 'purchased', label: '¿Compraste alguno de los productos sugeridos?', options: [{ label: 'Sí', value: true }, { label: 'No', value: false }] },
+  { key: 'still_taking_30d', label: '¿Sigues tomándolo después de ~30 días?', options: [{ label: 'Sí', value: true }, { label: 'No', value: false }] },
+  { key: 'perceived_benefit', label: '¿Notaste algún beneficio?', options: [{ label: 'Ninguno', value: 'ninguno' }, { label: 'Leve', value: 'leve' }, { label: 'Claro', value: 'claro' }] },
+]
+
 export default function Feedback({ goTo, showToast, apiResult }) {
   const { authToken } = useAuth()
   const suplementos = (apiResult?.recomendaciones ?? apiResult?.recommendations)?.map(r => r.nombre).filter(Boolean) ?? SUPLEMENTOS_FALLBACK
   const [selected, setSelected]   = useState(null)
   const [checked,  setChecked]    = useState([])
+  const [outcomes, setOutcomes]   = useState({})
   const [sending,  setSending]    = useState(false)
+
+  function setOutcome(key, value) {
+    setOutcomes(prev => (prev[key] === value ? { ...prev, [key]: undefined } : { ...prev, [key]: value }))
+  }
+
+  function skip() {
+    trackEvent(apiResult, { eventType: 'dismiss', payload: { ui: 'feedback', action: 'omitir' } }, authToken)
+    goTo('landing')
+  }
 
   function toggleCheck(s) {
     setChecked(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
@@ -55,7 +74,12 @@ export default function Feedback({ goTo, showToast, apiResult }) {
         rating: OPCIONES[selected].rating,
         conditions: apiResult?.conditions ?? [],
         comment: checked.length ? `No aplica: ${checked.join(', ')}` : null,
+        purchased: outcomes.purchased ?? null,
+        still_taking_30d: outcomes.still_taking_30d ?? null,
+        perceived_benefit: outcomes.perceived_benefit ?? null,
       }, authToken)
+      if (outcomes.still_taking_30d === true) trackEvent(apiResult, { eventType: 'still_taking_30d', payload: { ui: 'feedback' } }, authToken)
+      if (outcomes.still_taking_30d === false) trackEvent(apiResult, { eventType: 'stopped', payload: { ui: 'feedback' } }, authToken)
       showToast('¡Gracias! Tu feedback mejoró SupleMatch')
       setTimeout(() => goTo('landing'), 2500)
     } catch (error) {
@@ -128,11 +152,42 @@ export default function Feedback({ goTo, showToast, apiResult }) {
         </div>
       </section>
 
+      <section className="surface-soft" style={{ padding: 15 }}>
+        <div className="section-title">Qué pasó después</div>
+        <p className="section-copy" style={{ margin: '4px 0 12px' }}>
+          Opcional. Esto es lo que más nos ayuda a saber si la recomendación sirvió, más que una nota.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {OUTCOME_QUESTIONS.map(question => (
+            <div key={question.key}>
+              <div style={{ fontSize: 13, color: 'var(--gray-700)', fontWeight: 700, marginBottom: 6 }}>{question.label}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {question.options.map(option => {
+                  const on = outcomes[question.key] === option.value
+                  return (
+                    <button
+                      key={String(option.value)}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setOutcome(question.key, option.value)}
+                      className={`option-card ${on ? 'is-selected' : ''}`}
+                      style={{ flex: '1 1 80px', padding: '10px 12px', fontSize: 13, justifyContent: 'center' }}
+                    >
+                      {option.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <div className="surface" style={{ textAlign: 'center' }}>
         <button className="btn-primary" onClick={submit} disabled={sending} style={{ marginBottom: 12 }}>
           {sending ? 'Enviando...' : 'Enviar comentario ✓'}
         </button>
-        <button onClick={() => goTo('landing')} style={{
+        <button onClick={skip} style={{
           background: 'none', border: 'none', color: 'var(--gray-400)',
           fontSize: 13, cursor: 'pointer', textDecoration: 'underline', padding: 4
         }}>Omitir</button>

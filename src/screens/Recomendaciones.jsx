@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { postFeedback, postProductReview } from '../api/suplematch'
+import { trackEvent, trackImpressions } from '../api/events'
 import { useAuth } from '../context/AuthContext'
 import Chip from '../components/Chip'
 import ProductThumb from '../components/ProductThumb'
@@ -132,17 +133,47 @@ export default function Recomendaciones({ goTo, prevScreen, apiResult, userData,
   const primaryRecs = visibleRecs
   const complementaryRecs = sortedRecs.slice(initialRecommendationLimit)
 
-  function openProduct(product, event) {
+  function rankOf(rec) {
+    const index = sortedRecs.findIndex(item => item === rec || (rec?.component_id && item?.component_id === rec.component_id))
+    return index >= 0 ? index + 1 : null
+  }
+
+  // "Ver en tienda" = intención de compra: es la señal más fuerte que tenemos antes del feedback a 30 días.
+  function openProduct(product, event, rec = productPreview?.rec ?? null) {
     event?.stopPropagation()
     if (!product?.url) return
+    trackEvent(apiResult, {
+      eventType: 'purchase_intent',
+      componentId: rec?.component_id ?? product.component_id ?? null,
+      productId: product.product_id ?? null,
+      position: rankOf(rec),
+      payload: { ui: 'recomendaciones', pharmacy: product.pharmacy ?? null, price: product.price ?? null, url_host: safeHost(product.url) },
+    }, authToken)
     window.open(product.url, '_blank', 'noopener,noreferrer')
   }
 
   function openProductPreview(rec, product, event) {
     event?.stopPropagation()
     if (!product) return
+    trackEvent(apiResult, {
+      eventType: 'product_click',
+      componentId: rec?.component_id ?? product.component_id ?? null,
+      productId: product.product_id ?? null,
+      position: rankOf(rec),
+      payload: { ui: 'recomendaciones', pharmacy: product.pharmacy ?? null },
+    }, authToken)
     setProductPreview({ rec, product })
     setProductRating(null)
+  }
+
+  function openRecInfo(rec) {
+    trackEvent(apiResult, {
+      eventType: 'click',
+      componentId: rec?.component_id ?? null,
+      position: rankOf(rec),
+      payload: { ui: 'recomendaciones', action: 'ver_mas_informacion' },
+    }, authToken)
+    setInfoRec(rec)
   }
 
   function bestProduct(rec) {
@@ -181,6 +212,12 @@ export default function Recomendaciones({ goTo, prevScreen, apiResult, userData,
     if (rec?.products?.length > 0 && !rec.products.some(isProductUserSafe)) return 'no encontramos un producto comercial adecuado para mostrar'
     return 'filtro de seguridad aplicado'
   }
+
+  useEffect(() => {
+    if (apiResult?._historical) return
+    trackImpressions(apiResult, visibleRecs, authToken)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiResult?.recommendation_id, visibleRecs.length])
 
   const supplementPacks = useMemo(
     () => buildPacksFromRecs(sortedRecs, { commercialBlocked, preferredPackSize, hasBudgetMax, budgetMax, alertas: apiResult?.alertas ?? [] }),
@@ -627,7 +664,7 @@ export default function Recomendaciones({ goTo, prevScreen, apiResult, userData,
                     </div>
                     <button
                       type="button"
-                      onClick={() => setInfoRec(r)}
+                      onClick={() => openRecInfo(r)}
                       style={{
                         border: '1px solid var(--gray-200)', borderRadius: 8, background: 'white',
                         color: 'var(--gray-700)', padding: '7px 9px', fontSize: 11,
@@ -673,7 +710,7 @@ export default function Recomendaciones({ goTo, prevScreen, apiResult, userData,
                 <button
                   key={r.component_id ?? r.nombre}
                   type="button"
-                  onClick={() => setInfoRec(r)}
+                  onClick={() => openRecInfo(r)}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 14px', border: 'none', borderTop: i > 0 ? '1px solid var(--gray-100)' : 'none',
@@ -742,7 +779,7 @@ export default function Recomendaciones({ goTo, prevScreen, apiResult, userData,
                     <button
                       key={rec.component_id ?? rec.nombre}
                       type="button"
-                      onClick={() => setInfoRec(rec)}
+                      onClick={() => openRecInfo(rec)}
                       style={{
                         border: `1px solid ${active ? 'var(--green)' : 'var(--gray-200)'}`,
                         background: active ? 'var(--green-light)' : 'white',
@@ -803,7 +840,7 @@ export default function Recomendaciones({ goTo, prevScreen, apiResult, userData,
         >
           Copiar resumen para mi médico
         </button>
-        <button onClick={() => goTo('landing')} style={{ background: 'none', border: 'none', color: 'var(--gray-400)', fontSize: 13, cursor: 'pointer', padding: 4 }}>
+        <button onClick={() => { trackEvent(apiResult, { eventType: 'dismiss', payload: { ui: 'recomendaciones', action: 'volver_inicio' } }, authToken); goTo('landing') }} style={{ background: 'none', border: 'none', color: 'var(--gray-400)', fontSize: 13, cursor: 'pointer', padding: 4 }}>
           Ir al menú principal
         </button>
       </div>
@@ -865,4 +902,8 @@ export default function Recomendaciones({ goTo, prevScreen, apiResult, userData,
       )}
     </div>
   )
+}
+
+function safeHost(url) {
+  try { return new URL(url).host } catch { return null }
 }
